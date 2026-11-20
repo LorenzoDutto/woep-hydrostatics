@@ -1,0 +1,196 @@
+/* Semisub Hydrostatics Lab - styles. Colours are tokens so light/dark both work.
+ *
+ * Layout idea (wide screens, e.g. a 15.6" laptop):
+ *   - left: foldable slider groups in a sticky panel with its own scrollbar
+ *   - right, first screen ("dash"): messages, one row of result cards, the 4 figures
+ *     sized to fill the remaining window height (app.js sets the dash height)
+ *   - right, below the first screen: tables and equations (scroll to see them)
+ * Narrow screens (< 1000 px): everything stacks in one column and the page scrolls.
+ */
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --ink: #1d2430;
+  --muted: #5d6676;
+  --line: #d9dde4;
+  --accent: #1f6feb;
+  --sea: rgba(40, 120, 200, 0.28);
+  --sea-line: #2b78c5;
+  --sky: #eef4fb;
+  --steel: #9aa3ae;
+  --steel-edge: #4b5563;
+  --concrete: #7c6f64;
+  --water-ballast: #5aa9e6;
+  --turbine: #c9ced6;
+  --ok: #1a7f37;    --ok-bg: #e6f4ea;
+  --info: #0b5cad;  --info-bg: #e7f0fb;
+  --warn: #9a6700;  --warn-bg: #fff4d6;
+  --err: #b42318;   --err-bg: #fde8e7;
+  --G: #d1242f;
+  --B: #1f6feb;
+  --thrust: #8250df;
+  --overflow: #e5484d;
+  --chart-a: #1f6feb;
+  --chart-b: #d1242f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --panel: #1b2129; --ink: #e6e9ee; --muted: #9aa4b2; --line: #2e3742;
+    --accent: #58a6ff; --sea: rgba(60, 140, 220, 0.30); --sea-line: #58a6ff; --sky: #18202a;
+    --steel: #6b7480; --steel-edge: #c2c8d0; --concrete: #9b8b7d; --water-ballast: #3b8fd1; --turbine: #8a929c;
+    --ok: #4ac26b; --ok-bg: #12301c; --info: #79b8ff; --info-bg: #142538;
+    --warn: #e3b341; --warn-bg: #33290f; --err: #ff7b72; --err-bg: #3a1714;
+    --G: #ff7b72; --B: #79b8ff; --thrust: #c297ff; --overflow: #ff6b6b; --chart-a: #79b8ff; --chart-b: #ff7b72;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 13.5px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+h1 { font-size: 17px; margin: 0; white-space: nowrap; }
+h3 { font-size: 14px; margin: 0 0 6px; }
+
+/* ---------------- header (one compact line) ---------------- */
+.topbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 7px 14px; background: var(--panel); border-bottom: 1px solid var(--line);
+}
+/* platform switch (segmented buttons) */
+.seg { display: inline-flex; border: 1px solid var(--accent); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
+.seg button { background: var(--panel); color: var(--accent); border: 0; padding: 5px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--accent); }
+.seg button.active { background: var(--accent); color: #fff; }
+.seg button:not(.active):hover { background: var(--bg); }
+.subtitle { margin: 0; color: var(--muted); flex: 1; min-width: 120px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.preset { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+select, input[type=number] {
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit;
+}
+.btn {
+  background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 5px 11px; font: inherit; cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn-small { padding: 3px 9px; }
+
+/* ---------------- two-column layout ---------------- */
+.layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 10px; padding: 8px 10px; align-items: start; }
+
+/* ---------------- left: foldable control groups ---------------- */
+.controls {
+  display: flex; flex-direction: column; gap: 6px;
+  position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; padding-right: 2px;
+}
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.group > summary {
+  cursor: pointer; list-style: none; padding: 8px 12px; font-weight: 650; font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center; user-select: none;
+}
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary::after { content: "▸"; color: var(--muted); transition: transform .15s; }
+.group[open] > summary::after { transform: rotate(90deg); }
+.group > summary:hover { color: var(--accent); }
+.group-body { padding: 0 12px 8px; }
+.ctrl { margin: 2px 0 7px; }
+.ctrl-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.ctrl-head label { font-size: 12.5px; line-height: 1.25; }
+.ctrl-head .sym { color: var(--muted); }
+.ctrl-val { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.ctrl-val input { width: 70px; text-align: right; padding: 1px 5px; }
+.unit { color: var(--muted); min-width: 30px; font-size: 12px; }
+input[type=range] { width: 100%; margin: 2px 0 0; height: 16px; accent-color: var(--accent); }
+.ctrl.disabled { opacity: .55; }
+.hint { color: var(--muted); font-size: 12px; margin: 3px 0; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.row-inline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.row-inline input { width: 64px; }
+
+/* ---------------- right: first-screen dashboard ---------------- */
+.output { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dash { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+
+.messages { display: flex; flex-direction: column; gap: 4px; max-height: 76px; overflow-y: auto; flex-shrink: 0; }
+.msg { border-radius: 6px; padding: 4px 10px; border-left: 4px solid; font-size: 12.5px; }
+.msg b { margin-right: 6px; }
+.msg.ok { background: var(--ok-bg); border-color: var(--ok); }
+.msg.info { background: var(--info-bg); border-color: var(--info); }
+.msg.warn { background: var(--warn-bg); border-color: var(--warn); }
+.msg.error { background: var(--err-bg); border-color: var(--err); }
+.msg.ok b { color: var(--ok); } .msg.info b { color: var(--info); } .msg.warn b { color: var(--warn); } .msg.error b { color: var(--err); }
+
+/* one row of 8 compact cards */
+.cards { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; min-width: 0; }
+.card .lbl { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .val { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.25; }
+.card .val small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.card .ref { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.key { border-color: var(--accent); }
+.card.bad .val { color: var(--err); }
+.card.warnc .val { color: var(--warn); }
+
+/* 4 figures: close-up | top view | whole turbine (2 rows)
+              moment chart (2 cols)  | whole turbine            */
+.figs {
+  flex: 1; min-height: 0; display: grid; gap: 8px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.95fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-areas: "close top whole" "moment moment whole";
+}
+.fig-whole { grid-area: whole; } .fig-close { grid-area: close; } .fig-top { grid-area: top; } .fig-moment { grid-area: moment; }
+.fig {
+  margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px;
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+}
+.fig figcaption { color: var(--muted); font-size: 11.5px; margin: 0 3px 4px; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+.fig figcaption .cap { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fs-btn {
+  flex-shrink: 0; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  border-radius: 5px; font-size: 13px; line-height: 1; padding: 2px 6px; cursor: pointer;
+}
+.fs-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* full-screen figure: covers the output area, leaves the slider panel usable */
+.fig.full {
+  position: fixed; top: 8px; bottom: 8px; left: 310px; right: 10px; z-index: 50;
+  padding: 8px; box-shadow: 0 8px 40px rgba(0, 0, 0, .35);
+}
+.fig.full figcaption { font-size: 14px; }
+.fig.full .fs-btn { font-size: 16px; padding: 4px 9px; }
+body.has-full .output { visibility: hidden; }   /* hide what is behind the enlarged figure */
+body.has-full .fig.full { visibility: visible; }
+/* The SVG fills its box; the drawing keeps its proportions (the sky/sea are drawn inside it). */
+.fig svg { flex: 1; min-height: 0; width: 100%; height: 100%; display: block; }
+svg text { fill: var(--ink); font-family: inherit; }
+
+/* ---------------- narrow screens: stack and scroll ---------------- */
+@media (max-width: 999px) {
+  .layout { grid-template-columns: 1fr; padding: 8px 12px; }
+  .controls { position: static; max-height: none; overflow: visible; }
+  .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .messages { max-height: none; }
+  .figs { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: "close" "whole" "top" "moment"; }
+  .fig svg { height: auto; flex: none; }
+  .fig.full { left: 8px; }                         /* narrow screens: the figure takes the whole window */
+  .fig.full svg { height: 100%; flex: 1; }
+}
+@media (max-width: 520px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------------- below the first screen ---------------- */
+.tables { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 1100px) { .tables { grid-template-columns: 1fr; } }
+.table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
+.table-wrap.wide { grid-column: 1 / -1; }
+td.note { text-align: left; color: var(--muted); font-size: 12px; }
+
+.equations { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.equations summary { cursor: pointer; font-weight: 600; }
+.eq-body p { margin: 6px 0; }
+code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.foot { color: var(--muted); font-size: 12px; padding: 4px 2px 14px; }
