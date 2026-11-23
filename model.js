@@ -27,7 +27,7 @@
  *    - STRUCTURE frame (x, z): fixed to the platform, origin on the platform axis at
  *      the still water line (SWL) of the upright floating position. It rotates with the
  *      platform. All hydrostatic quantities (z_CoB, z_CoM, J, K, ...) are computed in
- *      this frame, in the upright position, as in the MATLAB script.
+ *      this frame, in the upright position.
  *    - EARTH frame (X, Z): fixed to the ground, origin at the SWL. Used to show where
  *      CoM, CoB and metacentre are once the platform has pitched (see framesAt()).
  *  Positive pitch = the turbine leans downwind (top moves to +x).
@@ -38,31 +38,59 @@
 (function (root) {
   "use strict";
 
-  // ---------------- 1. environmental constants (same as MATLAB) -------------
+  // ---------------- 1. constants ----------------
   const RHO_W = 1025;     // kg/m3  sea water density
   const G = 9.80665;      // m/s2   gravity acceleration
+  const RHO_STEEL = 7850; // kg/m3  structural steel density
 
-  // Turbine and load: the same 15 MW turbine on every platform.
-  // Values from exercise_statics.m. The rotor radius (117 m blade + 4 m hub) and the
-  // overhang (10 m) come from Rotor15MW.mat and the "par" structure in Semisub.mat.
+  // ---------------- turbine model ----------------
+  // The same 15 MW turbine on every platform, split into two parts:
+  //   - RNA (rotor-nacelle assembly: blades + hub + nacelle). Its mass does NOT depend on
+  //     the tower height. Rotor.mat / Semisub.mat: nacelle 680 t + hub 180 t + 3 blades of
+  //     66.1 t = 1 058 t, rounded to 1 060 t. Its CoM is taken at hub height.
+  //   - TOWER. Its mass grows linearly with the tower height, as in the NREL cost and
+  //     scaling model (Fingersh, Hand & Laxson, 2006, NREL/TP-500-40566), where the tower
+  //     mass is proportional to (rotor swept area) x (hub height): with a fixed rotor it is
+  //     proportional to the hub height. Its CoM is at a fixed fraction of the tower height
+  //     (a tapered tower has its CoM below mid-height).
+  // The two constants (tower mass and CoM fraction) are calibrated so that, for the
+  // reference hub height (135 m above the tower base), the turbine is exactly the one of the
+  // exercise: 2 100 t, CoM 95 m above the tower base, CoM x = -2 m.
+  const TURBINE_REF = { mass: 2100e3, comX: -2, comZrel: 95, hubRel: 135 };
+  const RNA_REF_MASS = 1060e3;                                              // kg
+  const TOWER_REF_MASS = TURBINE_REF.mass - RNA_REF_MASS;                   // 1 040 t at the reference height
+  const TOWER_COM_FRACTION = (TURBINE_REF.mass * TURBINE_REF.comZrel - RNA_REF_MASS * TURBINE_REF.hubRel)
+    / (TOWER_REF_MASS * TURBINE_REF.hubRel);                                // = 0.402 (tower CoM at 40 % of its height)
+  const RNA_COM_X = TURBINE_REF.comX * TURBINE_REF.mass / RNA_REF_MASS;    // = -3.96 m (rotor overhang, upwind)
+
+  // User-adjustable turbine, load and design-objective parameters
   const TURBINE_DEFAULTS = {
-    turbineMass: 2100e3,   // kg  turbine (RNA + tower)
-    turbineCOMx: -2,       // m   turbine COM x-position (negative = upwind, overhanging rotor)
-    turbineCOMzRel: 95,    // m   turbine COM height ABOVE THE TOWER BASE (= 110 m above SWL when the base is at +15 m)
-    hubHeightRel: 135,     // m   hub height ABOVE THE TOWER BASE        (= 150 m above SWL when the base is at +15 m)
+    rnaMass: RNA_REF_MASS, // kg  rotor-nacelle assembly mass (independent of the tower height)
+    hubHeightRel: 135,     // m   hub height ABOVE THE TOWER BASE (= 150 m above SWL when the base is at +15 m)
     hubX: -10,             // m   rotor centre x-position (overhang, upwind)
-    rotorRadius: 121,      // m   rotor radius
+    rotorRadius: 121,      // m   rotor radius (117 m blade + 4 m hub, Rotor15MW.mat)
     thrust: 2e6,           // N   maximum rotor thrust
-    pitchLimitDeg: 10,     // deg allowable static pitch (design criterion)
-    minTipClearance: 20,   // m   minimum distance between the lowest blade tip and the SWL
+    pitchLimitDeg: 10,     // deg design objective: allowable static pitch
+    minTipClearance: 20,   // m   design objective: minimum distance between the lowest blade tip and the SWL
   };
+
+  /** Turbine mass items (heights measured from the tower base). */
+  function turbineParts(p) {
+    const towerMass = TOWER_REF_MASS * p.hubHeightRel / TURBINE_REF.hubRel;
+    const rna = { m: p.rnaMass, x: RNA_COM_X, zRel: p.hubHeightRel };
+    const tower = { m: towerMass, x: 0, zRel: TOWER_COM_FRACTION * p.hubHeightRel };
+    const mass = rna.m + tower.m;
+    return { rna, tower, mass, comX: (rna.m * rna.x) / mass, comZrel: (rna.m * rna.zRel + tower.m * tower.zRel) / mass };
+  }
 
   /* ==========================================================================
    *  2. PLATFORM TYPES
    *  Each platform has:
    *    name, refDraft     reference draft used to compute the default ballast
-   *    DEFAULTS           platform parameters (ballastMass is filled in at start-up)
-   *    surfaceArea(p)     hull shell area, used when "autoSteel" is on
+   *    steelRefMass       steel mass of the reference design (exercise); it sets the
+   *                       default equivalent steel thickness
+   *    DEFAULTS           platform parameters (t_steel and ballastMass are filled in at start-up)
+   *    surfaceArea(p)     hull shell area: steel mass = rho_steel * area * t_steel
    *    build(p)           returns the "hull" object used by the solver:
    *        A_wp, J              waterplane area and inertia (pitch axis)
    *        height               keel-to-top height (used for the sinking check)
@@ -90,6 +118,7 @@
     key: "semisub",
     name: "Semisubmersible",
     refDraft: 18,
+    steelRefMass: 3500e3,
     DEFAULTS: {
       d: 12,                 // m   central column diameter
       d_EC: 13,              // m   external column diameter
@@ -97,8 +126,7 @@
       H_col: 33,             // m   total column height (keel to top) = D + FB = 18 + 15
       H_P: 6,                // m   pontoon height
       W_P: 9,                // m   pontoon width
-      steelMass: 3500e3,     // kg  platform steel (hull) mass
-      autoSteel: false,      // if true, steel mass scales with the hull surface area
+      t_steel: 0,            // m   equivalent steel thickness (filled in below: gives 3 500 t)
       rho_b: 2400,           // kg/m3 concrete density
       ballastMass: 0,        // kg  concrete ballast (filled in below: 3 833 378 kg gives D = 18 m)
       waterFill: 1.0,        // -   filling ratio of the pontoons with sea water (1 = full)
@@ -180,11 +208,11 @@
     key: "spar",
     name: "Spar",
     refDraft: 104,
+    steelRefMass: 4000e3,
     DEFAULTS: {
       d: 16,                 // m   spar diameter
       L_spar: 119,           // m   total spar length (keel to top) = D + FB = 104 + 15
-      steelMass: 4000e3,     // kg  platform steel mass
-      autoSteel: false,
+      t_steel: 0,            // m   equivalent steel thickness (filled in below: gives 4 000 t)
       rho_b: 5000,           // kg/m3 iron ore ballast
       ballastMass: 0,        // kg  (filled in below to give D = 104 m)
     },
@@ -230,12 +258,12 @@
     key: "barge",
     name: "Barge",
     refDraft: 7,
+    steelRefMass: 3000e3,
     DEFAULTS: {
       W: 52,                 // m   barge width (square)
       H_hull: 14,            // m   hull height (keel to deck)
       H_ped: 8,              // m   pedestal height (deck to tower base)
-      steelMass: 3000e3,     // kg  platform steel mass
-      autoSteel: false,
+      t_steel: 0,            // m   equivalent steel thickness (filled in below: gives 3 000 t)
       rho_b: 1025,           // kg/m3 ballast density (sea water)
       ballastMass: 0,        // kg  (filled in below to give D = 7 m)
     },
@@ -276,10 +304,14 @@
     return Object.assign({}, TURBINE_DEFAULTS, PLATFORMS[type].DEFAULTS, pIn);
   }
 
-  /** Steel mass actually used by the model (manual value, or scaled with the hull area). */
+  /**
+   * Steel mass of the hull = steel density x shell area x equivalent thickness.
+   * The equivalent thickness "smears" plates, stiffeners, bulkheads and outfitting over the
+   * outer shell; it is therefore larger than the bare plate thickness.
+   */
   function effectiveSteelMass(type, pIn) {
     const P = PLATFORMS[type], p = fullParams(type, pIn);
-    return p.autoSteel ? P.DEFAULTS.steelMass * P.surfaceArea(p) / P.surfaceArea(P.DEFAULTS) : p.steelMass;
+    return RHO_STEEL * P.surfaceArea(p) * p.t_steel;
   }
 
   /* ========================================================================
@@ -303,8 +335,11 @@
 
     // ---------------- 1. mass budget ----------------
     const steelMass = effectiveSteelMass(type, p);
-    const totalMass = p.turbineMass + steelMass + hull.otherMass + p.ballastMass;
+    const turb = turbineParts(p);                                // RNA + tower (tower mass grows with its height)
+    const totalMass = turb.mass + steelMass + hull.otherMass + p.ballastMass;
     r.steelMass = steelMass;
+    r.shellArea = PLATFORMS[type].surfaceArea(p);
+    r.turbine = turb;
     r.totalMass = totalMass;
 
     const ballastHeight = hull.ballastHeight(p.ballastMass);
@@ -338,16 +373,22 @@
     r.COB = [0, 0, COBz];                                        // CoB, upright, structure frame (symmetric hull -> x = y = 0)
 
     // ---------------- 3. centre of mass of the full device ----------------
-    const items = [{ name: "Turbine (RNA + tower)", m: p.turbineMass, x: p.turbineCOMx, z: base + p.turbineCOMzRel }]
-      .concat(hull.items(D, steelMass, ballastHeight));
+    const items = [
+      { name: "Rotor-nacelle assembly (RNA)", m: turb.rna.m, x: turb.rna.x, z: base + turb.rna.zRel },
+      { name: "Tower", m: turb.tower.m, x: turb.tower.x, z: base + turb.tower.zRel },
+    ].concat(hull.items(D, steelMass, ballastHeight));
     const COMx = items.reduce((a, it) => a + it.m * it.x, 0) / totalMass;
     const COMz = items.reduce((a, it) => a + it.m * it.z, 0) / totalMass;
     r.items = items;
     r.COM = [COMx, 0, COMz];                                     // CoM of the whole device (platform + turbine), structure frame
 
     // ---------------- 4. pitch stiffness ----------------
-    // Hydrostatic stiffness   Kh = rho g (J + Vs * z_B)   (z_B < 0  -> destabilising term)
-    // Gravity stiffness       Kg = - M g z_G               (z_G > 0  -> destabilising)
+    // 1D approach: of the 6x6 restoring (stiffness) matrix of the floating body, only the
+    // pitch-pitch term C55 is kept (DOF 5 = rotation about the y axis, through the SWL origin);
+    // couplings with the other DOFs and the mooring are neglected. K = C55 = Kh + Kg with
+    //   Hydrostatic part   Kh = rho g (J + Vs * z_CoB)   (z_CoB < 0  -> destabilising term)
+    //   Gravity part       Kg = - M g z_CoM              (z_CoM > 0  -> destabilising)
+    // so that the restoring moment for a small pitch angle th is  M_restoring = K * th.
     const Kh = RHO_W * G * (hull.J + Vs * COBz);
     const Kg = -totalMass * G * COMz;
     const K = Kh + Kg;
@@ -361,10 +402,15 @@
     // ---------------- 5. static pitch under maximum thrust ----------------
     const hubHeight = base + p.hubHeightRel;                     // hub height above SWL
     r.hubHeight = hubHeight;
+    // Pitch equilibrium about the SWL origin:  K * th = M_ext, with the overturning moment
+    //   M_ext = F_T h_hub + M_tot g (x_CoM - x_CoB)
+    // (moment of the thrust + couple of weight and buoyancy when CoM and CoB are not on the
+    //  same vertical in the upright position; M_tot = rho_w Vs at heave equilibrium).
+    // For these symmetric hulls x_CoB = 0, so the second term is M_tot g x_CoM
+    // (x_CoM < 0: the overhanging rotor makes the turbine lean upwind).
     const M_thrust = p.thrust * hubHeight;                       // thrust * lever arm (about the SWL)
-    const M_weight = COMx * totalMass * G;                       // offset weight
-    const M_buoy = -r.COB[0] * RHO_W * Vs * G;                   // offset buoyancy (zero here)
-    const M_ext = M_thrust + M_weight + M_buoy;
+    const M_weight = totalMass * G * (COMx - r.COB[0]);          // weight-buoyancy couple
+    const M_ext = M_thrust + M_weight;
     r.M_thrust = M_thrust; r.M_weight = M_weight; r.M_ext = M_ext;
 
     // Critical angles (geometry only, the small-angle model keeps the draft)
@@ -449,12 +495,18 @@
     const p = fullParams(type, pIn);
     const hull = PLATFORMS[type].build(p);
     if (hull.error) return NaN;
-    return RHO_W * hull.Vs(Dtarget) - (p.turbineMass + effectiveSteelMass(type, p) + hull.otherMass);
+    return RHO_W * hull.Vs(Dtarget) - (turbineParts(p).mass + effectiveSteelMass(type, p) + hull.otherMass);
   }
 
-  // Default ballast of each platform = the one that gives the reference draft
-  // (semisub: 3 833 378 kg concrete, spar: 15 333 202 kg iron ore, barge: 14 301 200 kg water).
-  Object.values(PLATFORMS).forEach((P) => { P.DEFAULTS.ballastMass = ballastForDraft(P.key, {}, P.refDraft); });
+  // Defaults computed at start-up, so that the reference designs are those of the exercise:
+  //  - equivalent steel thickness giving the reference steel mass
+  //    (semisub 3 500 t -> 46.0 mm, spar 4 000 t -> 79.8 mm, barge 3 000 t -> 45.9 mm);
+  //  - ballast giving the reference draft
+  //    (semisub: 3 833 378 kg concrete, spar: 15 333 202 kg iron ore, barge: 14 301 200 kg water).
+  Object.values(PLATFORMS).forEach((P) => {
+    P.DEFAULTS.t_steel = P.steelRefMass / (RHO_STEEL * P.surfaceArea(P.DEFAULTS));
+    P.DEFAULTS.ballastMass = ballastForDraft(P.key, {}, P.refDraft);
+  });
 
   /** Structure-frame -> earth-frame rotation for a pitch angle th (top moves to +X). */
   function toEarth(x, z, th) { return [x * Math.cos(th) + z * Math.sin(th), -x * Math.sin(th) + z * Math.cos(th)]; }
@@ -486,6 +538,6 @@
   function deg(rad) { return rad * 180 / Math.PI; }
   function deg2rad(d) { return d * Math.PI / 180; }
 
-  root.HydroModel = { RHO_W, G, TURBINE_DEFAULTS, PLATFORMS, fullParams, solve, ballastForDraft, effectiveSteelMass, toEarth, deg, deg2rad };
+  root.HydroModel = { VERSION: "1.1.0", RHO_W, G, RHO_STEEL, TURBINE_DEFAULTS, PLATFORMS, fullParams, solve, ballastForDraft, effectiveSteelMass, turbineParts, toEarth, deg, deg2rad };
   if (typeof module !== "undefined" && module.exports) module.exports = root.HydroModel;
 })(typeof window !== "undefined" ? window : globalThis);

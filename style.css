@@ -32,6 +32,8 @@
   --overflow: #e5484d;
   --chart-a: #1f6feb;
   --chart-b: #d1242f;
+  --in-color: #0f7b6c;   /* card border: inputs  */
+  --out-color: #1f6feb;  /* card border: outputs */
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -41,6 +43,7 @@
     --ok: #4ac26b; --ok-bg: #12301c; --info: #79b8ff; --info-bg: #142538;
     --warn: #e3b341; --warn-bg: #33290f; --err: #ff7b72; --err-bg: #3a1714;
     --G: #ff7b72; --B: #79b8ff; --thrust: #c297ff; --overflow: #ff6b6b; --chart-a: #79b8ff; --chart-b: #ff7b72;
+    --in-color: #3fc1ad; --out-color: #58a6ff;
   }
 }
 
@@ -101,7 +104,11 @@ select, input[type=number] {
 .ctrl-val input { width: 70px; text-align: right; padding: 1px 5px; }
 .unit { color: var(--muted); min-width: 30px; font-size: 12px; }
 input[type=range] { width: 100%; margin: 2px 0 0; height: 16px; accent-color: var(--accent); }
-.ctrl.disabled { opacity: .55; }
+.ctrl-note { font-size: 11px; color: var(--muted); min-height: 0; }
+.ctrl-note:empty { display: none; }
+.ctrl.outside .ctrl-val input { border-color: var(--warn); background: var(--warn-bg); }
+.ctrl.outside input[type=range] { opacity: .5; }
+#objectiveSliders { margin-bottom: 6px; }
 .hint { color: var(--muted); font-size: 12px; margin: 3px 0; }
 .check { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 .row-inline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -120,14 +127,22 @@ input[type=range] { width: 100%; margin: 2px 0 0; height: 16px; accent-color: va
 .msg.error { background: var(--err-bg); border-color: var(--err); }
 .msg.ok b { color: var(--ok); } .msg.info b { color: var(--info); } .msg.warn b { color: var(--warn); } .msg.error b { color: var(--err); }
 
-/* one row of 8 compact cards */
-.cards { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; min-width: 0; }
+/* one row of cards, split into two groups: inputs (properties of the design) and outputs
+   (results). Each group has its own uniform border colour. */
+.cards { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); gap: 10px; flex-shrink: 0; }
+.card-group { min-width: 0; }
+.cg-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 3px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cg-title span { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.card-group.in .cg-title { color: var(--in-color); }
+.card-group.out .cg-title { color: var(--out-color); }
+.cg-cards { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 6px; }
+.card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 8px; padding: 5px 8px; min-width: 0; }
+.card-group.in .card { border-color: var(--in-color); }
+.card-group.out .card { border-color: var(--out-color); }
 .card .lbl { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card .val { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1.25; }
 .card .val small { font-size: 11px; font-weight: 500; color: var(--muted); }
 .card .ref { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card.key { border-color: var(--accent); }
 .card.bad .val { color: var(--err); }
 .card.warnc .val { color: var(--warn); }
 
@@ -168,14 +183,15 @@ svg text { fill: var(--ink); font-family: inherit; }
 @media (max-width: 999px) {
   .layout { grid-template-columns: 1fr; padding: 8px 12px; }
   .controls { position: static; max-height: none; overflow: visible; }
-  .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cards { grid-template-columns: 1fr; }
+  .cg-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .messages { max-height: none; }
   .figs { grid-template-columns: 1fr; grid-template-rows: none; grid-template-areas: "close" "whole" "top" "moment"; }
   .fig svg { height: auto; flex: none; }
   .fig.full { left: 8px; }                         /* narrow screens: the figure takes the whole window */
   .fig.full svg { height: 100%; flex: 1; }
 }
-@media (max-width: 520px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .cg-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------------- below the first screen ---------------- */
 .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

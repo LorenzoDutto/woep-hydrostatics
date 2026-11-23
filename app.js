@@ -16,18 +16,32 @@
   const deg = M.deg;
 
   // ------------------------------------------------------------------------
-  //  Turbine sliders (shared by all platforms). f = factor: displayed value * f = SI value
+  //  Slider definitions. f = factor: displayed value * f = SI value.
+  //  min/max = slider range. The number box accepts values OUTSIDE the slider range,
+  //  limited only by the physical limits hardMin (default 0) and hardMax (default none).
   // ------------------------------------------------------------------------
+  // Turbine sliders (shared by all platforms)
   const TURBINE_GROUP = {
-    group: "Turbine and load", scope: "turbine", items: [
+    group: "Turbine and load", scope: "turbine",
+    note: "The tower mass grows with the hub height, and the turbine CoM moves with it (the RNA mass does not change).",
+    items: [
       { key: "thrust", label: "Maximum rotor thrust", sym: "F_T", unit: "MN", min: 0, max: 5, step: 0.05, f: 1e6, dec: 2 },
-      { key: "turbineMass", label: "Turbine mass (RNA + tower)", sym: "M_t", unit: "t", min: 1000, max: 4000, step: 50, f: 1e3, dec: 0 },
-      { key: "hubHeightRel", label: "Hub height above tower base", sym: "", unit: "m", min: 80, max: 220, step: 1, f: 1, dec: 0 },
-      { key: "turbineCOMzRel", label: "Turbine COM above tower base", sym: "", unit: "m", min: 30, max: 150, step: 1, f: 1, dec: 0 },
-      { key: "minTipClearance", label: "Minimum blade tip clearance", sym: "", unit: "m", min: 0, max: 60, step: 1, f: 1, dec: 0 },
-      { key: "pitchLimitDeg", label: "Allowable static pitch", sym: "θ_max", unit: "°", min: 2, max: 20, step: 0.5, f: 1, dec: 1 },
+      { key: "rnaMass", label: "Rotor-nacelle assembly mass", sym: "M_RNA", unit: "t", min: 500, max: 2000, step: 10, f: 1e3, dec: 0 },
+      { key: "hubHeightRel", label: "Hub height above tower base", sym: "", unit: "m", min: 80, max: 220, step: 1, f: 1, dec: 0, hardMin: 1 },
     ],
   };
+  // Design objectives (shared by all platforms), shown in the "Design objectives" menu
+  // together with the target-draft helper
+  const OBJECTIVES_GROUP = {
+    group: "Design objectives", scope: "turbine", mount: "objectiveSliders",
+    items: [
+      { key: "pitchLimitDeg", label: "Allowable static pitch", sym: "θ_max", unit: "°", min: 2, max: 20, step: 0.5, f: 1, dec: 1, hardMin: 0.1, hardMax: 80 },
+      { key: "minTipClearance", label: "Minimum blade tip clearance", sym: "", unit: "m", min: 0, max: 60, step: 1, f: 1, dec: 0 },
+    ],
+  };
+  // Equivalent steel thickness slider (same for all platforms; mm on screen, m in the model)
+  const STEEL_ITEM = { key: "t_steel", label: "Steel thickness (equivalent)", sym: "t_s", unit: "mm", min: 20, max: 100, step: 0.5, f: 1e-3, dec: 1, hardMin: 1, info: "steel" };
+  const GEO_MIN = 0.5;   // m, physical lower limit for any geometric dimension typed in a box
 
   // ------------------------------------------------------------------------
   //  Platform-specific user interface: sliders, scenarios, figure ranges,
@@ -41,20 +55,20 @@
       groups: [
         {
           group: "Platform geometry", items: [
-            { key: "d", label: "Central column diameter", sym: "d", unit: "m", min: 6, max: 20, step: 0.5, f: 1, dec: 1 },
-            { key: "d_EC", label: "External column diameter", sym: "d_EC", unit: "m", min: 6, max: 20, step: 0.5, f: 1, dec: 1 },
-            { key: "s_EC", label: "Column spacing (centre to centre)", sym: "s_EC", unit: "m", min: 25, max: 80, step: 0.5, f: 1, dec: 1 },
-            { key: "H_col", label: "Column height (keel to top)", sym: "H_col", unit: "m", min: 15, max: 60, step: 0.5, f: 1, dec: 1 },
-            { key: "H_P", label: "Pontoon height", sym: "H_P", unit: "m", min: 2, max: 12, step: 0.5, f: 1, dec: 1 },
-            { key: "W_P", label: "Pontoon width", sym: "W_P", unit: "m", min: 3, max: 16, step: 0.5, f: 1, dec: 1 },
+            { key: "d", label: "Central column diameter", sym: "d", unit: "m", min: 6, max: 20, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "d_EC", label: "External column diameter", sym: "d_EC", unit: "m", min: 6, max: 20, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "s_EC", label: "Column spacing (centre to centre)", sym: "s_EC", unit: "m", min: 25, max: 80, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "H_col", label: "Column height (keel to top)", sym: "H_col", unit: "m", min: 15, max: 60, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "H_P", label: "Pontoon height", sym: "H_P", unit: "m", min: 2, max: 12, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "W_P", label: "Pontoon width", sym: "W_P", unit: "m", min: 3, max: 16, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
           ],
         },
         {
           group: "Masses and ballast", items: [
             { key: "ballastMass", label: "Concrete ballast (total, 3 columns)", sym: "M_b", unit: "t", min: 0, max: 16000, step: 10, f: 1e3, dec: 1 },
-            { key: "rho_b", label: "Concrete ballast density", sym: "ρ_b", unit: "kg/m³", min: 1000, max: 8000, step: 50, f: 1, dec: 0 },
-            { key: "waterFill", label: "Pontoon water-ballast filling", sym: "", unit: "%", min: 0, max: 100, step: 5, f: 0.01, dec: 0 },
-            { key: "steelMass", label: "Platform steel mass", sym: "M_s", unit: "t", min: 1000, max: 9000, step: 50, f: 1e3, dec: 0, toggle: "autoSteel" },
+            { key: "rho_b", label: "Concrete ballast density", sym: "ρ_b", unit: "kg/m³", min: 1000, max: 8000, step: 50, f: 1, dec: 0, hardMin: 1 },
+            { key: "waterFill", label: "Pontoon water-ballast filling", sym: "", unit: "%", min: 0, max: 100, step: 5, f: 0.01, dec: 0, hardMax: 100 },
+            STEEL_ITEM,
           ],
         },
       ],
@@ -106,10 +120,11 @@
       },
       equations: `
         <p><b>Geometry.</b> Pontoon length L<sub>P</sub> = s<sub>EC</sub> − d<sub>EC</sub>/2 − d/2. Waterplane area A<sub>wp</sub> = π d²/4 + 3 π d<sub>EC</sub>²/4.</p>
-        <p><b>Submerged volume</b> (D ≥ H<sub>P</sub>): V<sub>s</sub>(D) = A<sub>wp</sub>·D + 3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub> &nbsp;⇒&nbsp; D = (M<sub>tot</sub>/ρ<sub>w</sub> − 3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub>) / A<sub>wp</sub></p>
-        <p><b>Masses:</b> M<sub>tot</sub> = M<sub>turbine</sub> + M<sub>steel</sub> + M<sub>water ballast</sub> + M<sub>concrete</sub>, with M<sub>water ballast</sub> = ρ<sub>w</sub>·3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub> (full pontoons).</p>
-        <p><b>Freeboard and tower base:</b> FB = H<sub>col</sub> − D; the tower stands on the central column, at z = FB.</p>
-        <p><b>Concrete ballast height</b> (3 external columns): h<sub>b</sub> = M<sub>concrete</sub> / (3 ρ<sub>b</sub> π d<sub>EC</sub>²/4) ≤ H<sub>col</sub>.</p>
+        <p><b>Submerged volume</b> (D ≥ H<sub>P</sub>): V<sub>s</sub>(D) = A<sub>wp</sub>·D + 3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub> (columns from the keel to the SWL + pontoons).</p>
+        <p><b>Masses:</b> M<sub>tot</sub> = M<sub>RNA</sub> + M<sub>tower</sub> + M<sub>steel</sub> + M<sub>water ballast</sub> + M<sub>concrete</sub>, with M<sub>water ballast</sub> = ρ<sub>w</sub>·3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub> (full pontoons).</p>
+        <p><b>Steel:</b> M<sub>steel</sub> = ρ<sub>steel</sub> A<sub>shell</sub> t<sub>s</sub>, with A<sub>shell</sub> = π d H<sub>col</sub> + 3 π d<sub>EC</sub> H<sub>col</sub> + 2 (π d²/4 + 3 π d<sub>EC</sub>²/4) + 6 (W<sub>P</sub> + H<sub>P</sub>) L<sub>P</sub>. Steel CoM at mid column height.</p>
+        <p><b>Heave equilibrium:</b> ρ<sub>w</sub> (A<sub>wp</sub> D + 3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub>) = M<sub>tot</sub> &nbsp;⇒&nbsp; D = (M<sub>tot</sub>/ρ<sub>w</sub> − 3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub>) / A<sub>wp</sub></p>
+        <p><b>Freeboard and tower base:</b> FB = H<sub>col</sub> − D; the tower stands on the central column, at z = FB.</p>        <p><b>Concrete ballast height</b> (3 external columns): h<sub>b</sub> = M<sub>concrete</sub> / (3 ρ<sub>b</sub> π d<sub>EC</sub>²/4) ≤ H<sub>col</sub>.</p>
         <p><b>CoB (upright):</b> z<sub>CoB</sub> = [A<sub>wp</sub> D (−D/2) + 3 L<sub>P</sub> W<sub>P</sub> H<sub>P</sub> (−D + H<sub>P</sub>/2)] / V<sub>s</sub></p>
         <p><b>Waterplane inertia:</b> J = 1.5 s<sub>EC</sub>² π d<sub>EC</sub>²/4 + π d⁴/64 + 3 π d<sub>EC</sub>⁴/64</p>`,
     },
@@ -119,15 +134,15 @@
       groups: [
         {
           group: "Platform geometry", items: [
-            { key: "d", label: "Spar diameter", sym: "d", unit: "m", min: 6, max: 30, step: 0.5, f: 1, dec: 1 },
-            { key: "L_spar", label: "Spar length (keel to top)", sym: "L", unit: "m", min: 30, max: 180, step: 0.5, f: 1, dec: 1 },
+            { key: "d", label: "Spar diameter", sym: "d", unit: "m", min: 6, max: 30, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "L_spar", label: "Spar length (keel to top)", sym: "L", unit: "m", min: 30, max: 180, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
           ],
         },
         {
           group: "Masses and ballast", items: [
             { key: "ballastMass", label: "Solid ballast (bottom of the spar)", sym: "M_b", unit: "t", min: 0, max: 40000, step: 10, f: 1e3, dec: 1 },
-            { key: "rho_b", label: "Ballast density (iron ore 5000)", sym: "ρ_b", unit: "kg/m³", min: 1000, max: 8000, step: 50, f: 1, dec: 0 },
-            { key: "steelMass", label: "Platform steel mass", sym: "M_s", unit: "t", min: 1000, max: 10000, step: 50, f: 1e3, dec: 0, toggle: "autoSteel" },
+            { key: "rho_b", label: "Ballast density (iron ore 5000)", sym: "ρ_b", unit: "kg/m³", min: 1000, max: 8000, step: 50, f: 1, dec: 0, hardMin: 1 },
+            STEEL_ITEM,
           ],
         },
       ],
@@ -160,10 +175,12 @@
       },
       equations: `
         <p><b>Geometry.</b> One cylinder of diameter d and length L. Waterplane area A<sub>wp</sub> = π d²/4.</p>
-        <p><b>Submerged volume:</b> V<sub>s</sub>(D) = π d²/4 · D &nbsp;⇒&nbsp; D = M<sub>tot</sub> / (ρ<sub>w</sub> π d²/4)</p>
-        <p><b>Masses:</b> M<sub>tot</sub> = M<sub>turbine</sub> + M<sub>steel</sub> + M<sub>ballast</sub>.</p>
+        <p><b>Submerged volume:</b> V<sub>s</sub>(D) = π d²/4 · D (cylinder from the keel to the SWL).</p>
+        <p><b>Masses:</b> M<sub>tot</sub> = M<sub>RNA</sub> + M<sub>tower</sub> + M<sub>steel</sub> + M<sub>ballast</sub>.</p>
+        <p><b>Steel:</b> M<sub>steel</sub> = ρ<sub>steel</sub> A<sub>shell</sub> t<sub>s</sub>, with A<sub>shell</sub> = π d L + 2 π d²/4. Steel CoM at mid-length: z = −D + L/2.</p>
+        <p><b>Heave equilibrium:</b> ρ<sub>w</sub> (π d²/4) D = M<sub>tot</sub> &nbsp;⇒&nbsp; D = 4 M<sub>tot</sub> / (ρ<sub>w</sub> π d²). The draft grows with the total mass and decreases with the square of the diameter.</p>
         <p><b>Freeboard and tower base:</b> FB = L − D; the tower stands on top of the spar, at z = FB.</p>
-        <p><b>Ballast height:</b> h<sub>b</sub> = M<sub>ballast</sub> / (ρ<sub>b</sub> π d²/4) ≤ L. Steel COM at mid-length: z = (−D + FB)/2.</p>
+        <p><b>Ballast height:</b> h<sub>b</sub> = M<sub>ballast</sub> / (ρ<sub>b</sub> π d²/4) ≤ L.</p>
         <p><b>CoB (upright):</b> z<sub>CoB</sub> = −D/2. <b>Waterplane inertia:</b> J = π d⁴/64 (very small: the spar is stable because its CoM is below its CoB).</p>`,
     },
 
@@ -172,16 +189,16 @@
       groups: [
         {
           group: "Platform geometry", items: [
-            { key: "W", label: "Barge width (square)", sym: "W", unit: "m", min: 20, max: 90, step: 0.5, f: 1, dec: 1 },
-            { key: "H_hull", label: "Hull height (keel to deck)", sym: "H", unit: "m", min: 5, max: 25, step: 0.5, f: 1, dec: 1 },
+            { key: "W", label: "Barge width (square)", sym: "W", unit: "m", min: 20, max: 90, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
+            { key: "H_hull", label: "Hull height (keel to deck)", sym: "H", unit: "m", min: 5, max: 25, step: 0.5, f: 1, dec: 1, hardMin: GEO_MIN },
             { key: "H_ped", label: "Pedestal height (deck to tower base)", sym: "", unit: "m", min: 0, max: 25, step: 0.5, f: 1, dec: 1 },
           ],
         },
         {
           group: "Masses and ballast", items: [
             { key: "ballastMass", label: "Ballast (bottom of the hull)", sym: "M_b", unit: "t", min: 0, max: 40000, step: 10, f: 1e3, dec: 1 },
-            { key: "rho_b", label: "Ballast density (sea water 1025)", sym: "ρ_b", unit: "kg/m³", min: 1000, max: 8000, step: 25, f: 1, dec: 0 },
-            { key: "steelMass", label: "Platform steel mass", sym: "M_s", unit: "t", min: 1000, max: 10000, step: 50, f: 1e3, dec: 0, toggle: "autoSteel" },
+            { key: "rho_b", label: "Ballast density (sea water 1025)", sym: "ρ_b", unit: "kg/m³", min: 1000, max: 8000, step: 25, f: 1, dec: 0, hardMin: 1 },
+            STEEL_ITEM,
           ],
         },
       ],
@@ -216,10 +233,12 @@
       },
       equations: `
         <p><b>Geometry.</b> Square box W × W, hull height H. Waterplane area A<sub>wp</sub> = W².</p>
-        <p><b>Submerged volume:</b> V<sub>s</sub>(D) = W² D &nbsp;⇒&nbsp; D = M<sub>tot</sub> / (ρ<sub>w</sub> W²)</p>
-        <p><b>Masses:</b> M<sub>tot</sub> = M<sub>turbine</sub> + M<sub>steel</sub> + M<sub>ballast</sub>.</p>
+        <p><b>Submerged volume:</b> V<sub>s</sub>(D) = W² D (box from the keel to the SWL).</p>
+        <p><b>Masses:</b> M<sub>tot</sub> = M<sub>RNA</sub> + M<sub>tower</sub> + M<sub>steel</sub> + M<sub>ballast</sub>.</p>
+        <p><b>Steel:</b> M<sub>steel</sub> = ρ<sub>steel</sub> A<sub>shell</sub> t<sub>s</sub>, with A<sub>shell</sub> = 2 W² + 4 W H (pedestal not included). Steel CoM at mid hull height: z = −D + H/2.</p>
+        <p><b>Heave equilibrium:</b> ρ<sub>w</sub> W² D = M<sub>tot</sub> &nbsp;⇒&nbsp; D = M<sub>tot</sub> / (ρ<sub>w</sub> W²)</p>
         <p><b>Freeboard and tower base:</b> FB = H − D; the tower stands on a pedestal on the deck, at z = FB + H<sub>ped</sub>.</p>
-        <p><b>Ballast height:</b> h<sub>b</sub> = M<sub>ballast</sub> / (ρ<sub>b</sub> W²) ≤ H. Steel COM at mid hull height: z = −D + H/2.</p>
+        <p><b>Ballast height:</b> h<sub>b</sub> = M<sub>ballast</sub> / (ρ<sub>b</sub> W²) ≤ H.</p>
         <p><b>CoB (upright):</b> z<sub>CoB</sub> = −D/2. <b>Waterplane inertia:</b> J = W⁴/12 (very large: the barge is stable thanks to its waterplane).</p>`,
     },
   };
@@ -247,7 +266,7 @@
     : v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   const symHTML = (s) => s ? s.replace(/_(\w+)/, "<sub>$1</sub>") : "";
-  const sub = (s) => `<tspan dy="3" font-size="8">${s}</tspan><tspan dy="-3"></tspan>`;      // SVG subscript
+  const sub = (s) => `<tspan dy="0.3em" font-size="72%">${s}</tspan><tspan dy="-0.3em"></tspan>`;   // SVG subscript (relative to the text size)
   const TOPSTEEL = `fill:var(--steel);stroke:var(--steel-edge);stroke-width:1`;
 
   // ======================================================================
@@ -267,43 +286,48 @@
       sec.className = "group";
       sec.dataset.gen = grp.group;
       sec.open = grp.group in wasOpen ? wasOpen[grp.group] : gi === 0;
-      sec.innerHTML = `<summary>${grp.group}</summary><div class="group-body"></div>`;
+      sec.innerHTML = `<summary>${grp.group}</summary><div class="group-body">${grp.note ? `<p class="hint">${grp.note}</p>` : ""}</div>`;
       const body = sec.querySelector(".group-body");
-      grp.items.forEach((def) => {
-        const wrap = document.createElement("div");
-        wrap.className = "ctrl";
-        const id = "in_" + def.key;
-        wrap.innerHTML = `
-          <div class="ctrl-head">
-            <label for="${id}">${def.label} <span class="sym">${symHTML(def.sym)}</span></label>
-            <span class="ctrl-val"><input type="number" id="${id}_n" step="any" aria-label="${def.label} value"><span class="unit">${def.unit}</span></span>
-          </div>
-          <input type="range" id="${id}" min="${def.min}" max="${def.max}" step="${def.step}">`;
-        if (def.toggle) {
-          const chk = document.createElement("label");
-          chk.className = "check";
-          chk.innerHTML = `<input type="checkbox" id="chk_${def.toggle}"> scale with hull surface area (constant plate thickness)`;
-          wrap.appendChild(chk);
-          chk.querySelector("input").addEventListener("change", (e) => { state.plat[state.type].autoSteel = e.target.checked; syncInputs(); schedule(); });
-        }
-        body.appendChild(wrap);
-        const range = wrap.querySelector("input[type=range]");
-        const number = wrap.querySelector("input[type=number]");
-        inputs[def.key] = { range, number, wrap, def, scope: grp.scope };
-
-        // slider moved -> update parameter
-        range.addEventListener("input", () => { setParam(def, grp.scope, parseFloat(range.value)); number.value = fmtInput(def, parseFloat(range.value)); schedule(); });
-        // number typed -> update parameter (clamped to the slider range)
-        number.addEventListener("change", () => {
-          let v = parseFloat(number.value);
-          if (!isFinite(v)) v = P()[def.key] / def.f;
-          v = Math.min(def.max, Math.max(def.min, v));
-          setParam(def, grp.scope, v);
-          syncInputs();
-          schedule();
-        });
-      });
+      grp.items.forEach((def) => buildSlider(body, def, grp.scope));
       host.insertBefore(sec, before);
+    });
+    // design objectives: their sliders live inside the static "Design objectives" menu
+    const objHost = $(OBJECTIVES_GROUP.mount);
+    objHost.innerHTML = "";
+    OBJECTIVES_GROUP.items.forEach((def) => buildSlider(objHost, def, OBJECTIVES_GROUP.scope));
+  }
+
+  /** One slider + number box. The box accepts values outside the slider range. */
+  function buildSlider(body, def, scope) {
+    const wrap = document.createElement("div");
+    wrap.className = "ctrl";
+    const id = "in_" + def.key;
+    wrap.innerHTML = `
+      <div class="ctrl-head">
+        <label for="${id}">${def.label} <span class="sym">${symHTML(def.sym)}</span></label>
+        <span class="ctrl-val"><input type="number" id="${id}_n" step="any" aria-label="${def.label} value"><span class="unit">${def.unit}</span></span>
+      </div>
+      <input type="range" id="${id}" min="${def.min}" max="${def.max}" step="${def.step}">
+      <div class="ctrl-note"></div>`;
+    body.appendChild(wrap);
+    const range = wrap.querySelector("input[type=range]");
+    const number = wrap.querySelector("input[type=number]");
+    const note = wrap.querySelector(".ctrl-note");
+    inputs[def.key] = { range, number, wrap, note, def, scope };
+
+    // slider moved -> update parameter
+    range.addEventListener("input", () => { setParam(def, scope, parseFloat(range.value)); syncInputs(); schedule(); });
+    // number typed -> update parameter. Any value is accepted, also outside the slider range;
+    // only physically meaningless values are limited (e.g. negative masses, zero diameters).
+    number.addEventListener("change", () => {
+      let v = parseFloat(number.value);
+      if (!isFinite(v)) v = P()[def.key] / def.f;
+      const lo = def.hardMin !== undefined ? def.hardMin : 0;
+      const hi = def.hardMax !== undefined ? def.hardMax : Infinity;
+      v = Math.min(hi, Math.max(lo, v));
+      setParam(def, scope, v);
+      syncInputs();
+      schedule();
     });
   }
 
@@ -315,17 +339,19 @@
   /** Write the current params back into sliders and number boxes. */
   function syncInputs() {
     const p = P();
-    Object.values(inputs).forEach(({ range, number, wrap, def }) => {
-      let v = p[def.key] / def.f;
-      const auto = def.key === "steelMass" && p.autoSteel;
-      if (auto) v = M.effectiveSteelMass(state.type, p) / def.f;
-      range.value = v;
+    Object.values(inputs).forEach(({ range, number, wrap, note, def }) => {
+      const v = p[def.key] / def.f;
+      range.value = v;                       // the browser pins the slider at its end if v is outside
       number.value = fmtInput(def, v);
-      range.disabled = number.disabled = auto;
-      wrap.classList.toggle("disabled", auto);
+      const outside = v < def.min - 1e-9 || v > def.max + 1e-9;
+      wrap.classList.toggle("outside", outside);
+      let txt = outside ? `outside the slider range (${def.min}–${def.max} ${def.unit})` : "";
+      if (def.info === "steel") {            // show the steel mass that results from the thickness
+        const area = M.PLATFORMS[state.type].surfaceArea(p);
+        txt = `→ steel mass ${fmt(M.effectiveSteelMass(state.type, p) / 1e3, 0)} t (shell area ${fmt(area, 0)} m²)` + (txt ? ` · ${txt}` : "");
+      }
+      note.textContent = txt;
     });
-    const chk = $("chk_autoSteel");
-    if (chk) chk.checked = !!p.autoSteel;
   }
 
   // Redraw at most once per animation frame (smooth slider dragging)
@@ -342,7 +368,6 @@
   function update() {
     const p = P();
     const r = M.solve(state.type, p);
-    if (p.autoSteel) syncInputs();   // the steel slider shows the computed value
     renderMessages(r);
     renderCards(r);
     drawSide($("figWhole"), r, true);
@@ -367,25 +392,35 @@
     const pitchDeg = deg(r.pitch);
     const ref = REF[state.type];
     const p = r.params;
-    const cards = [
-      { lbl: "Draft D", val: ok ? fmt(r.draft, 2) : (r.sinks ? "SUNK" : fmt(r.draft, 2)), unit: "m", ref: fmt(ref.draft, 2), key: true, bad: r.sinks },
+    // INPUTS of the hydrostatic problem: properties that follow directly from the design choices
+    const inputsCards = [
+      { lbl: "Total mass M_tot", val: r.totalMass ? fmt(r.totalMass / 1e3, 0) : "—", unit: "t", ref: fmt(ref.totalMass / 1e3, 0) },
+      { lbl: "Steel mass", val: r.steelMass !== undefined ? fmt(r.steelMass / 1e3, 0) : "—", unit: "t", ref: fmt(ref.steelMass / 1e3, 0) },
+      { lbl: "Ballast height h_b", val: r.ballastHeight !== undefined ? fmt(r.ballastHeight, 2) : "—", unit: "m", ref: fmt(ref.ballastHeight, 2), bad: hullOk && r.ballastHeight > r.hull.ballastMaxHeight },
+      { lbl: "Waterplane inertia J", val: hullOk ? fmt(r.hull.J, 0) : "—", unit: "m⁴", ref: fmt(ref.hull.J, 0) },
+    ];
+    // OUTPUTS: equilibrium and stability results
+    const outputCards = [
+      { lbl: "Draft D", val: ok ? fmt(r.draft, 2) : (r.sinks ? "SUNK" : fmt(r.draft, 2)), unit: "m", ref: fmt(ref.draft, 2), bad: r.sinks },
       {
-        lbl: "Static pitch θ", val: ok ? (r.K > 0 ? fmt(pitchDeg, 2) : "unstable") : "—", unit: "°", ref: fmt(deg(ref.pitch), 2), key: true,
+        lbl: "Static pitch θ", val: ok ? (r.K > 0 ? fmt(pitchDeg, 2) : "unstable") : "—", unit: "°", ref: fmt(deg(ref.pitch), 2),
         bad: r.capsizes, warn: ok && !r.capsizes && Math.abs(pitchDeg) > p.pitchLimitDeg,
       },
-      { lbl: "Waterplane inertia J", val: hullOk ? fmt(r.hull.J, 0) : "—", unit: "m⁴", ref: fmt(ref.hull.J, 0), key: true },
-      { lbl: "Total mass", val: r.totalMass ? fmt(r.totalMass / 1e3, 0) : "—", unit: "t", ref: fmt(ref.totalMass / 1e3, 0) },
-      { lbl: "Ballast height h_b", val: r.ballastHeight !== undefined ? fmt(r.ballastHeight, 2) : "—", unit: "m", ref: fmt(ref.ballastHeight, 2), bad: hullOk && r.ballastHeight > r.hull.ballastMaxHeight },
       { lbl: "Metacentric height GM", val: ok ? fmt(r.GM, 2) : "—", unit: "m", ref: fmt(ref.GM, 2), bad: ok && r.GM <= 0 },
       { lbl: "Pitch stiffness K", val: ok ? fmt(r.K / 1e9, 2) : "—", unit: "GNm/rad", ref: fmt(ref.K / 1e9, 2), bad: ok && r.K <= 0 },
       { lbl: "Capsize angle", val: ok ? fmt(deg(r.critPos), 1) : "—", unit: "°", ref: fmt(deg(ref.critPos), 1) },
     ];
-    $("cards").innerHTML = cards.map((c) => `
-      <div class="card ${c.key ? "key" : ""} ${c.bad ? "bad" : ""} ${c.warn ? "warnc" : ""}">
+    const card = (c) => `
+      <div class="card ${c.bad ? "bad" : ""} ${c.warn ? "warnc" : ""}">
         <div class="lbl">${symHTML(c.lbl)}</div>
         <div class="val">${c.val} <small>${c.val === "—" || c.val === "SUNK" || c.val === "unstable" ? "" : c.unit}</small></div>
-        <div class="ref">reference: ${c.ref} ${c.unit}</div>
-      </div>`).join("");
+        <div class="ref">ref.: ${c.ref} ${c.unit}</div>
+      </div>`;
+    $("cards").innerHTML = `
+      <div class="card-group in"><div class="cg-title">Inputs to the hydrostatics <span>(from your design)</span></div>
+        <div class="cg-cards" style="--n:${inputsCards.length}">${inputsCards.map(card).join("")}</div></div>
+      <div class="card-group out"><div class="cg-title">Outputs <span>(equilibrium and stability)</span></div>
+        <div class="cg-cards" style="--n:${outputCards.length}">${outputCards.map(card).join("")}</div></div>`;
   }
 
   // ======================================================================
@@ -434,13 +469,16 @@
     // of view() is the drawing width in SVG units: it sets how big the text looks once scaled.
     const [x0, x1, z0, z1, gstep] = whole ? ui.ranges.whole : ui.ranges.close;
     const v = view(svg, x0, x1, z0, z1, whole ? 300 : 450);
+    // Text/marker scale factor: a tall, narrow drawing (e.g. the spar) is shrunk a lot to fit
+    // its box, so its text and symbols are enlarged to keep the same apparent size.
+    const fs = v.fs = whole ? Math.max(1, v.H / 475) : Math.max(1, v.H / 350);
     const out = [];
 
     // Sky background, then horizontal grid lines
     out.push(`<rect x="0" y="0" width="${v.W}" height="${v.H}" rx="5" style="fill:var(--sky)"/>`);
     for (let z = Math.ceil(v.zmin / gstep) * gstep; z <= v.zmax; z += gstep) {
       out.push(`<line x1="0" x2="${v.W}" y1="${v.Y(z)}" y2="${v.Y(z)}" stroke="var(--line)" stroke-width="0.6"/>`);
-      out.push(text(3, v.Y(z) - 2, `${z} m`, `font-size="9" style="fill:var(--muted)"`));
+      out.push(text(3, v.Y(z) - 2, `${z} m`, `font-size="${9 * fs}" style="fill:var(--muted)"`));
     }
 
     if (!r.hull || r.hull.error) {
@@ -482,7 +520,7 @@
       if (p.thrust > 0 && !overlay) {
         const L = 25 + 20 * p.thrust / 2e6;
         out.push(arrow(v, hx - L - 4, hz, hx - 4, hz, css("--thrust"), 3));
-        out.push(text(v.X(hx - L - 4), v.Y(hz) - 8, `F${sub("T")} = ${fmt(p.thrust / 1e6, 2)} MN`, `font-size="12" style="fill:var(--thrust)"`));
+        out.push(text(v.X(hx - L - 4), v.Y(hz) - 8 * fs, `F${sub("T")} = ${fmt(p.thrust / 1e6, 2)} MN`, `font-size="${12 * fs}" style="fill:var(--thrust)"`));
       }
     }
 
@@ -494,7 +532,7 @@
       const bad = r.tipOk === false;
       const col = bad ? "var(--err)" : "var(--muted)";
       out.push(`<line x1="0" x2="${v.W}" y1="${v.Y(p.minTipClearance)}" y2="${v.Y(p.minTipClearance)}" stroke="${col}" stroke-dasharray="5 4" stroke-width="${bad ? 1.6 : 1}"/>`);
-      out.push(text(v.W - 4, v.Y(p.minTipClearance) - 3, `min. tip clearance ${fmt(p.minTipClearance, 0)} m`, `text-anchor="end" font-size="9.5" style="fill:${col}"`));
+      out.push(text(v.W - 4, v.Y(p.minTipClearance) - 3, `min. tip clearance ${fmt(p.minTipClearance, 0)} m`, `text-anchor="end" font-size="${9.5 * fs}" style="fill:${col}"`));
     }
 
     // ---- CoM, CoB (whole device) and metacentre M ----
@@ -511,21 +549,21 @@
         // where the CoB would be if it were fixed to the structure (upright CoB rotated with the hull)
         if (Math.abs(f.th) > M.deg2rad(0.5)) {
           const [b0x, b0z] = tf(0, r.COB[2]);
-          out.push(`<circle cx="${v.X(b0x)}" cy="${v.Y(b0z)}" r="4" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2 2"/>`);
-          out.push(text(v.X(b0x) - 7, v.Y(b0z) + 14, `CoB${sub("0")}`, `text-anchor="end" font-size="10" style="fill:var(--muted)"`));
+          out.push(`<circle cx="${v.X(b0x)}" cy="${v.Y(b0z)}" r="${4 * fs}" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="2 2"/>`);
+          out.push(text(v.X(b0x) - 7 * fs, v.Y(b0z) + 14 * fs, `CoB${sub("0")}`, `text-anchor="end" font-size="${10 * fs}" style="fill:var(--muted)"`));
         }
         // weight (down, at CoM) and buoyancy (up, at CoB)
-        out.push(arrow(v, gx, gz, gx, gz - aL, css("--G"), 2.2));
-        out.push(arrow(v, bx, bz, bx, bz + aL, css("--B"), 2.2));
+        out.push(arrow(v, gx, gz, gx, gz - aL, css("--G"), 2.2 * fs));
+        out.push(arrow(v, bx, bz, bx, bz + aL, css("--B"), 2.2 * fs));
         // lever arm of the righting couple
-        out.push(text(v.W - 8, 18, `lever arm X${sub("CoB")} − X${sub("CoM")} = ${fmt(f.lever, 2)} m`, `text-anchor="end" font-size="11"`));
+        out.push(text(v.W - 8, (fs > 1.2 ? 38 : 18) * fs, `lever arm X${sub("CoB")} − X${sub("CoM")} = ${fmt(f.lever, 2)} m`, `text-anchor="end" font-size="${11 * fs}"`));
       }
       // metacentre M (both views) with the line of action of the buoyancy: vertical through CoB and M
-      const dm = whole ? 4.5 : 6;   // diamond half-size
+      const dm = (whole ? 4.5 : 6) * fs;   // diamond half-size
       out.push(`<line x1="${v.X(bx)}" y1="${v.Y(bz)}" x2="${v.X(mx)}" y2="${v.Y(mz)}" stroke="var(--B)" stroke-dasharray="4 3" stroke-width="1.2"/>`);
       out.push(`<polygon points="${v.X(mx)},${v.Y(mz) - dm} ${v.X(mx) + dm * 0.85},${v.Y(mz)} ${v.X(mx)},${v.Y(mz) + dm} ${v.X(mx) - dm * 0.85},${v.Y(mz)}" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5"/>`);
-      out.push(text(v.X(mx) - dm - 3, v.Y(mz) - 4, "M", `text-anchor="end" font-size="${whole ? 11 : 12}" font-weight="700"`));   // left: for a spar M is almost on the CoB
-      const rad = whole ? 4.5 : 6;
+      out.push(text(v.X(mx) - dm - 3, v.Y(mz) - 4 * fs, "M", `text-anchor="end" font-size="${(whole ? 11 : 12) * fs}" font-weight="700"`));   // left: for a spar M is almost on the CoB
+      const rad = (whole ? 4.5 : 6) * fs;
       out.push(marker(v, gx, gz, css("--G"), "CoM", rad, -1));
       out.push(marker(v, bx, bz, css("--B"), "CoB", rad, 1));
     }
@@ -533,33 +571,35 @@
     // ---- annotations ----
     if (!whole) {
       if (r.ballastHeight > r.hull.ballastMaxHeight && !r.sinks) {
-        out.push(text(v.W - 8, 18, `h${sub("b")} = ${fmt(r.ballastHeight, 1)} m &gt; available ${fmt(r.hull.ballastMaxHeight, 1)} m`, `text-anchor="end" font-size="11.5" style="fill:var(--err)"`));
+        out.push(text(v.W - 8, 18 * fs, `h${sub("b")} = ${fmt(r.ballastHeight, 1)} m &gt; available ${fmt(r.hull.ballastMaxHeight, 1)} m`, `text-anchor="end" font-size="${11.5 * fs}" style="fill:var(--err)"`));
       }
-      const nL = ui.legend.length;         // legend (bottom-left), on a panel background
-      out.push(`<rect x="4" y="${v.H - 22 - (nL - 1) * 15}" width="112" height="${nL * 15 + 6}" rx="4" fill="var(--panel)" fill-opacity=".85"/>`);
+      // legend (bottom-left), on a panel background; sizes scaled with fs
+      const nL = ui.legend.length, lh = 15 * fs, ls = 10 * fs;
+      out.push(`<rect x="4" y="${v.H - 7 * fs - nL * lh}" width="${112 * fs}" height="${nL * lh + 6 * fs}" rx="4" fill="var(--panel)" fill-opacity=".85"/>`);
       ui.legend.forEach(([c, t], i) => {
-        out.push(`<rect x="${8}" y="${v.H - 17 - i * 15}" width="10" height="10" fill="var(${c})" stroke="var(--steel-edge)" stroke-width=".5"/>`);
-        out.push(text(22, v.H - 8 - i * 15, t, `font-size="10.5"`));
+        out.push(`<rect x="${4 + 4 * fs}" y="${v.H - 17 * fs - i * lh}" width="${ls}" height="${ls}" fill="var(${c})" stroke="var(--steel-edge)" stroke-width=".5"/>`);
+        out.push(text(4 + 18 * fs, v.H - 8 * fs - i * lh, t, `font-size="${10.5 * fs}"`));
       });
     }
-    out.push(text(42, 16, "wind →", `font-size="11" style="fill:var(--muted)"`));
+    out.push(text(42 * fs, 16 * fs, "wind →", `font-size="${11 * fs}" style="fill:var(--muted)"`));
     if (overlay) {
-      out.push(text(v.W / 2, v.H * 0.28, overlay, `text-anchor="middle" font-size="${whole ? 22 : 24}" font-weight="700" style="fill:var(--err)"`));
+      out.push(text(v.W / 2, v.H * 0.28, overlay, `text-anchor="middle" font-size="${(whole ? 22 : 24) * fs}" font-weight="700" style="fill:var(--err)"`));
     }
     svg.innerHTML = out.join("");
   }
 
   function waterLayer(v) {
+    const fs = v.fs || 1;
     return `<rect x="0" y="${v.Y(0)}" width="${v.W}" height="${v.H - v.Y(0)}" style="fill:var(--sea)"/>` +
       `<line x1="0" x2="${v.W}" y1="${v.Y(0)}" y2="${v.Y(0)}" stroke="var(--sea-line)" stroke-width="1.6"/>` +
-      `<text x="${v.W - 6}" y="${v.Y(0) - 4}" text-anchor="end" font-size="11" style="fill:var(--sea-line)">SWL</text>`;
+      `<text x="${v.W - 6}" y="${v.Y(0) - 4}" text-anchor="end" font-size="${11 * fs}" style="fill:var(--sea-line)">SWL</text>`;
   }
   /** Point marker; side = -1 puts the label on the left, +1 on the right. */
   function marker(v, x, z, color, label, rad = 6, side = 1) {
     const X = v.X(x), Y = v.Y(z);
     return `<circle cx="${X}" cy="${Y}" r="${rad}" fill="var(--panel)" stroke="${color}" stroke-width="2.2"/>` +
       `<circle cx="${X}" cy="${Y}" r="${rad * 0.37}" fill="${color}"/>` +
-      `<text x="${X + side * (rad + 4)}" y="${Y + 4}" text-anchor="${side < 0 ? "end" : "start"}" font-size="${rad > 5 ? 12.5 : 11}" font-weight="700" style="fill:${color}">${label}</text>`;
+      `<text x="${X + side * (rad + 4)}" y="${Y + rad * 0.65}" text-anchor="${side < 0 ? "end" : "start"}" font-size="${Math.max(11, rad * 2.08)}" font-weight="700" style="fill:${color}">${label}</text>`;
   }
 
   // ======================================================================
@@ -657,12 +697,12 @@
     }
     out.push(`<g clip-path="url(#clipM)">${g.join("")}</g>`);
     // legend (bottom-right corner, usually empty)
-    const lx = W - mr - 312, ly = H - mb - 34;
-    out.push(`<rect x="${lx - 6}" y="${ly - 14}" width="300" height="44" rx="5" fill="var(--panel)" fill-opacity=".9" stroke="var(--line)"/>`);
+    const lx = W - mr - 402, ly = H - mb - 34;
+    out.push(`<rect x="${lx - 6}" y="${ly - 14}" width="392" height="44" rx="5" fill="var(--panel)" fill-opacity=".9" stroke="var(--line)"/>`);
     out.push(`<line x1="${lx}" x2="${lx + 22}" y1="${ly - 2}" y2="${ly - 2}" stroke="var(--chart-a)" stroke-width="2.5"/>`);
     out.push(text(lx + 28, ly + 2, `restoring K·θ  (K = ${fmt(r.K / 1e9, 2)} GN·m/rad)`, `font-size="11.5"`));
     out.push(`<line x1="${lx}" x2="${lx + 22}" y1="${ly + 16}" y2="${ly + 16}" stroke="var(--chart-b)" stroke-width="2.5"/>`);
-    out.push(text(lx + 28, ly + 20, `overturning F_T·h_hub + x_CoM·M·g =${fmt(Mext, 0)} MN·m`, `font-size="11.5"`));
+    out.push(text(lx + 28, ly + 20, `overturning M_ext = F_T·h_hub + M·g·(x_CoM − x_CoB) = ${fmt(Mext, 0)} MN·m`, `font-size="11.5"`));
     svg.innerHTML = out.join("");
   }
   function niceStep(raw) {
@@ -703,7 +743,8 @@
       ["Heave stiffness C<sub>33</sub> = ρ g A<sub>wp</sub>", fmt(r.heaveStiffness / 1e6, 2), "MN/m"],
       ["Hub height above SWL", fmt(r.hubHeight, 1), "m"],
       ["Thrust moment F<sub>T</sub>·h<sub>hub</sub>", fmt(r.M_thrust / 1e6, 1), "MN·m"],
-      ["Weight-offset moment x<sub>CoM</sub>·M·g", fmt(r.M_weight / 1e6, 1), "MN·m"],
+      ["Weight–buoyancy couple M g (x<sub>CoM</sub> − x<sub>CoB</sub>)", fmt(r.M_weight / 1e6, 1), "MN·m"],
+      ["Overturning moment M<sub>ext</sub>", fmt(r.M_ext / 1e6, 1), "MN·m"],
       ["Reserve buoyancy", fmt(100 * r.reserveBuoyancy, 1), "%"],
       ["Blade tip clearance (min. " + fmt(r.params.minTipClearance, 0) + " m)", fmt(r.tipClearance, 1), "m"],
     ];
@@ -725,7 +766,7 @@
       ["Hub", pt(f.hubS), pt(f.hubS), pt(f.hubE), "fixed in the structure"],
     ];
     $("framesTable").innerHTML =
-      `<tr><th>Point</th><th>structure frame, upright (x, z)</th><th>structure frame at θ (x, z)</th><th>earth frame at θ (X, Z)</th><th>note</th></tr>` +
+      `<tr><th>Point</th><th>upright (x, z)</th><th>relative to the structure at θ (x, z)</th><th>relative to the ground at θ (X, Z)</th><th>note</th></tr>` +
       rows.map((c) => `<tr><td>${c[0]}</td><td>${c[1]}</td><td>${c[2]}</td><td>${c[3]}</td><td class="note">${c[4]}</td></tr>`).join("") +
       (!eq ? `<tr class="total"><td colspan="5">θ = ${thTxt}</td></tr>` :
       `<tr class="total"><td colspan="3">θ = ${thTxt}. Lever arm X<sub>CoB</sub> − X<sub>CoM</sub></td><td>${fmt(f.lever, 3)} m</td><td></td></tr>` +
