@@ -3,6 +3,16 @@
 All notable changes to the Floating Wind Hydrostatics Lab are listed here.
 The project uses [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH.
 
+## [Unreleased]
+
+Changes on `main` since 1.1.1, not yet released (waiting for review).
+
+### Added
+- **Bar chart of the pitch stiffness terms** in the tables section, below the mass budget and next to the stiffness table: ρ_w g J, ρ_w g V_s z_CoB,0, −M g z_CoM and their sum K_55, with a stable/unstable verdict (K_55 > 0).
+
+### Unchanged
+- No change to the model or to the numerical results.
+
 ## [1.1.1] - 2026-11-23
 README corrections; no changes to the model or results.
 

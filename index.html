@@ -88,10 +88,20 @@
 
       <!-- ======== below the first screen (scroll down) ======== -->
       <div class="tables">
-        <div class="table-wrap">
-          <h3>Mass budget</h3>
-          <table id="massTable"></table>
+        <!-- left column: mass budget with the K55 bar chart below it -->
+        <div class="tables-col">
+          <div class="table-wrap">
+            <h3>Mass budget</h3>
+            <table id="massTable"></table>
+          </div>
+          <div class="table-wrap kchart-wrap">
+            <h3>Pitch stiffness K<sub>55</sub>: contributions</h3>
+            <!-- bar chart drawn by app.js (renderKChart) -->
+            <svg id="kChart" viewBox="0 0 320 290" role="img" aria-label="Bar chart of the three terms of the pitch stiffness and their sum"></svg>
+            <p class="kchart-note">K<sub>55</sub> = ρ<sub>w</sub> g J + ρ<sub>w</sub> g V<sub>s</sub> z<sub>CoB,0</sub> − M g z<sub>CoM</sub>. The platform is stable in pitch only if K<sub>55</sub> &gt; 0.</p>
+          </div>
         </div>
+        <!-- right column -->
         <div class="table-wrap">
           <h3>Hydrostatics and stiffness</h3>
           <table id="stiffTable"></table>

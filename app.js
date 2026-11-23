@@ -720,8 +720,10 @@
       $("massTable").innerHTML = `<tr><td>${reason}</td></tr>` + (r.totalMass ? `<tr><td>Total mass</td><td>${fmt(r.totalMass / 1e3, 0)} t</td></tr>` : "");
       $("stiffTable").innerHTML = `<tr><td>${reason}</td></tr>`;
       $("framesTable").innerHTML = `<tr><td>${reason}</td></tr>`;
+      $("kChart").innerHTML = text(160, 145, reason, `text-anchor="middle" font-size="13" fill="var(--muted)"`);
       return;
     }
+    renderKChart(r);
     const rows = r.items.map((it) => `<tr><td>${it.name}</td><td>${fmt(it.m / 1e3, 0)}</td><td>${fmt(it.x, 2)}</td><td>${fmt(it.z, 2)}</td><td>${fmt(it.m * it.z / 1e3, 0)}</td></tr>`).join("");
     $("massTable").innerHTML = `<tr><th>Component</th><th>mass (t)</th><th>x (m)</th><th>z above SWL (m)</th><th>m·z (t·m)</th></tr>${rows}
       <tr class="total"><td>Total / CoM of the whole device</td><td>${fmt(r.totalMass / 1e3, 0)}</td><td>${fmt(r.COM[0], 2)}</td><td>${fmt(r.COM[2], 2)}</td><td>${fmt(r.totalMass * r.COM[2] / 1e3, 0)}</td></tr>`;
@@ -751,6 +753,67 @@
     $("stiffTable").innerHTML = `<tr><th>Quantity</th><th>value</th><th>unit</th></tr>` +
       st.map(([a, b, c]) => `<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`).join("");
     renderFrames(r);
+  }
+
+  /**
+   * Bar chart of the three terms of the pitch stiffness and their sum:
+   *   K55 = ρ_w g J  +  ρ_w g V_s z_CoB,0  −  M_tot g z_CoM
+   * Bars start from zero, so a negative term points downwards. The vertical
+   * scale is shared by all bars (GN·m/rad).
+   */
+  function renderKChart(r) {
+    const rg = M.RHO_W * M.G;
+    const bars = [
+      { sub: "waterplane", v: rg * r.hull.J / 1e9, col: "--k-wp" },
+      { sub: "buoyancy height", v: rg * r.Vs * r.COB[2] / 1e9, col: "--k-buoy" },
+      { sub: "gravity", v: -r.totalMass * M.G * r.COM[2] / 1e9, col: "--k-grav" },
+      { sub: "total", v: r.K / 1e9, col: "--k-tot" },
+    ];
+    // bar labels, with SVG subscripts
+    const labs = [
+      `ρgJ`,
+      `ρgV<tspan dy="3" font-size="75%">s</tspan><tspan dy="-3">z</tspan><tspan dy="3" font-size="75%">CoB,0</tspan>`,
+      `−Mgz<tspan dy="3" font-size="75%">CoM</tspan>`,
+      `K<tspan dy="3" font-size="75%">55</tspan>`,
+    ];
+    const W = 320, H = 290, ml = 40, mr = 4, mt = 26, mb = 40;   // must match the viewBox in index.html
+    const vmax = Math.max(0, ...bars.map((b) => b.v)), vmin = Math.min(0, ...bars.map((b) => b.v));
+    const span = (vmax - vmin) || 1;
+    const step = niceStep(span / 5);
+    // leave room (≈ 10 % of the range) for the value labels at the end of the bars
+    const top = Math.ceil((vmax + (vmax > 0 ? 0.1 * span : 0)) / step) * step;
+    const bot = Math.floor((vmin - (vmin < 0 ? 0.1 * span : 0)) / step) * step;
+    const minus = (s) => s.replace(/^-/, "−");
+    const y = (v) => mt + (top - v) / ((top - bot) || 1) * (H - mt - mb);
+    const out = [];
+    // grid and axis
+    for (let v = bot; v <= top + 1e-9; v += step) {
+      out.push(`<line x1="${ml}" x2="${W - mr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="${Math.abs(v) < 1e-9 ? 0 : 1}"/>`);
+      out.push(text(ml - 5, y(v) + 4, minus(fmt(Math.abs(v) < 1e-9 ? 0 : v, step < 1 ? 1 : 0)), `text-anchor="end" font-size="10.5" fill="var(--muted)"`));
+    }
+    out.push(text(12, mt + (H - mt - mb) / 2, "GN·m/rad", `font-size="10.5" fill="var(--muted)" text-anchor="middle" transform="rotate(-90 12 ${(mt + (H - mt - mb) / 2).toFixed(1)})"`));
+    // separator before the total bar
+    const slot = (W - ml - mr) / bars.length, bw = slot * 0.58;
+    const xSep = ml + 3 * slot;
+    out.push(`<line x1="${xSep}" x2="${xSep}" y1="${mt - 8}" y2="${H - mb + 4}" stroke="var(--line)" stroke-dasharray="3 3"/>`);
+    bars.forEach((b, i) => {
+      const cx = ml + slot * (i + 0.5), y0 = y(0), y1 = y(b.v);
+      const yTop = Math.min(y0, y1), h = Math.max(Math.abs(y1 - y0), 1);
+      out.push(`<rect x="${(cx - bw / 2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="var(${b.col})" rx="2"/>`);
+      // value: above a positive bar, below a negative one
+      const vy = b.v >= 0 ? y1 - 5 : y1 + 13;
+      out.push(text(cx, vy, (b.v > 0 ? "+" : "") + minus(fmt(b.v, 2)), `text-anchor="middle" font-size="11.5" font-weight="${i === 3 ? 700 : 500}" fill="var(--ink)"`));
+      // label under the plot area
+      out.push(text(cx, H - mb + 18, labs[i], `text-anchor="middle" font-size="11.5" fill="var(--ink)"`));
+      out.push(text(cx, H - mb + 33, b.sub, `text-anchor="middle" font-size="10" fill="var(--muted)"`));
+    });
+    // zero line on top of the bars
+    out.push(`<line x1="${ml}" x2="${W - mr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--ink)" stroke-width="1.2"/>`);
+    // stability verdict
+    const ok = r.K > 0;
+    out.push(text(W - mr, 12, ok ? "K₅₅ > 0: stable in pitch" : "K₅₅ ≤ 0: unstable in pitch",
+      `text-anchor="end" font-size="11.5" font-weight="600" fill="var(${ok ? "--ok" : "--err"})"`));
+    $("kChart").innerHTML = out.join("");
   }
 
   /** Structure frame vs earth frame: where CoM, CoB, M and hub are at the static pitch. */

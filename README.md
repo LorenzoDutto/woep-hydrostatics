@@ -1,6 +1,6 @@
 # Floating Wind Hydrostatics Lab
 
-**Version 1.1.1.** See [CHANGELOG.md](CHANGELOG.md) for the changes between versions.
+**Version 1.1.1**, plus the unreleased changes listed in [CHANGELOG.md](CHANGELOG.md), which also lists the changes between versions.
 
 An interactive tool for the course **Wind and Ocean Energy Plants**. It belongs to the exercise on the hydrostatics of floating offshore wind turbines.
 
@@ -139,6 +139,7 @@ The turbine CoM is not an input. It follows the tower height (see section 4).
 * **Tables** (scroll down):
   * the mass budget (RNA, tower, steel and ballast, each with its mass and position);
   * all the hydrostatic quantities (D, FB, V_s, A_wp, J, z_CoB, z_CoM, BM, z_M, GM, K_h, K_g, C_33, M_ext, tip clearance, …);
+  * below the mass budget, a bar chart of the three terms of K_55 and their sum: waterplane ρ_w g J (light blue), buoyancy height ρ_w g V_s z_CoB,0 (mustard), gravity −M g z_CoM (violet) and K_55 (sage green). The platform is stable in pitch only if K_55 > 0;
   * the positions of CoM, CoB, M and hub, upright and at the static pitch, relative to the structure and to the ground, with the lever arm and the righting couple.
 * **Equations used** (scroll down). Click to expand the formulas for the current platform.
 
@@ -188,6 +189,10 @@ K = C_55 = ρ_w g (J + V_s z_CoB) − M_tot g z_CoM = ρ_w g V_s · GM, with GM 
 
 * The couplings with the other DOFs and the mooring stiffness are neglected.
 * K gives the restoring moment for a small pitch angle: M_restoring = K θ.
+* Signs of the three terms (see the K_55 bar chart in the tables section):
+  * ρ_w g J is always positive.
+  * ρ_w g V_s z_CoB is always negative, because the CoB is below the SWL.
+  * −M g z_CoM is negative when the CoM is above the SWL (semisub, barge), and positive when it is below (spar). That is where the spar gets its stability.
 * The first term (K_h) comes from the waterplane and the buoyancy; the second (K_g) from the weight.
 
 ### Overturning moment
