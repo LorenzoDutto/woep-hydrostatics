@@ -1,6 +1,6 @@
 # Floating Wind Hydrostatics Lab
 
-**Version 1.1.0.** See [CHANGELOG.md](CHANGELOG.md) for the changes between versions.
+**Version 1.1.1.** See [CHANGELOG.md](CHANGELOG.md) for the changes between versions.
 
 An interactive tool for the course **Wind and Ocean Energy Plants**. It belongs to the exercise on the hydrostatics of floating offshore wind turbines.
 
