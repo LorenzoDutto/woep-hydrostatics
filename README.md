@@ -30,7 +30,7 @@ The tool runs entirely in your web browser. **You don't need an internet connect
 ## 1. How to get it and start it
 
 1. Download the repository from GitHub. Click the green **Code** button, then **Download ZIP**, and unzip it. If you use git, you can run `git clone` instead.
-2. Open the folder `Exercise_OffshoreStructures/Interactive_Hydrostatics/`.
+2. Open the folder `woep-hydrostatics-main`.
 3. **Double-click `index.html`.** It opens in your default browser (Chrome, Firefox, Edge or Safari).
 
 Keep the four files (`index.html`, `style.css`, `model.js` and `app.js`) in the same folder. The page needs all of them.
@@ -43,9 +43,9 @@ Keep the four files (`index.html`, `style.css`, `model.js` and `app.js`) in the 
 
 Use the **Semisub | Spar | Barge** switch at the top of the page. Each platform keeps its own settings, so you can switch back and forth and compare them. The turbine settings and the design objectives are shared by all three.
 
-The reference designs are those of the hydrostatics exercise (Exercises 1–4) and of the files `Semisub.mat`, `Spar.mat` and `Barge.mat`.
+The reference designs are those of the hydrostatics exercise given in classroom.
 
-| | Semisubmersible (Ex. 1–2) | Spar (Ex. 3) | Barge (Ex. 4) |
+| | Semisubmersible | Spar | Barge |
 |---|---|---|---|
 | Hull | central column d = 12 m; 3 external columns d_EC = 13 m at s_EC = 50 m; pontoons 9 × 6 m | one cylinder, d = 16 m, length L = 119 m | square box, W = 52 m, hull height H = 14 m |
 | Ballast | concrete (2 400 kg/m³) at the bottom of the 3 external columns, plus pontoons full of sea water | iron ore (5 000 kg/m³) at the bottom of the spar | sea water (1 025 kg/m³) at the bottom of the hull |
@@ -55,7 +55,7 @@ The reference designs are those of the hydrostatics exercise (Exercises 1–4) a
 
 The tower base is at +15 m above the still water line (SWL) in all three reference designs, so the hub is at 150 m above the SWL. If the draft changes, the tower base moves with the freeboard, and the hub height above the sea changes too.
 
-**Turbine.** The reference turbine weighs 2 100 t, with its CoM 95 m above the tower base (110 m above the SWL) and 2 m upwind. The maximum thrust is 2 MN. The rotor radius is R = 121 m (117 m blade + 4 m hub) and the hub overhang is 10 m upwind (from `Rotor15MW.mat` and the `par` structure of the `.mat` files).
+**Turbine.** The reference turbine weighs 2 100 t, with its CoM 95 m above the tower base (110 m above the SWL) and 2 m upwind. The maximum thrust is 2 MN. The rotor radius is R = 121 m (117 m blade + 4 m hub) and the hub overhang is 10 m upwind.
 
 ```
    semisubmersible (side view, wind from the left)
@@ -85,9 +85,9 @@ Drag a slider or type a value into the box next to it.
 | Menu | Semisub | Spar | Barge |
 |---|---|---|---|
 | Platform geometry | d, d_EC, s_EC, column height H_col, pontoon height H_P, pontoon width W_P | diameter d, length L (keel to top) | width W, hull height H, pedestal height |
-| Masses and ballast | concrete ballast M_b and its density ρ_b, pontoon water filling, **steel thickness t_s** | solid ballast M_b and its density ρ_b, **steel thickness t_s** | ballast M_b and its density ρ_b (1 025 = water), **steel thickness t_s** |
+| Masses and ballast | concrete ballast M_b and its density ρ_b, pontoon water filling, steel thickness t_s | solid ballast M_b and its density ρ_b, steel thickness t_s | ballast M_b and its density ρ_b (1 025 = water), steel thickness t_s |
 
-**Steel thickness.** The steel mass is not an input any more. It is computed from the steel actually used:
+Steel thickness. The steel mass is not an input. It is computed from the steel actually used:
 
 M_steel = ρ_steel · A_shell · t_s, with ρ_steel = 7 850 kg/m³
 
@@ -146,12 +146,9 @@ The turbine CoM is not an input. It follows the tower height (see section 4).
 
 ## 4. The model (1D hydrostatics)
 
-The tool uses the formulas of the exercise, with one difference: the draft is an **output**.
-
-| | Original exercise | This tool |
-|---|---|---|
-| Input | target draft D | ballast mass M_b |
-| Output | ballast mass and height | draft D, then the static pitch |
+The tool uses the formulas of the exercise.
+| Input | ballast mass M_b |
+| Output | draft D, then the static pitch |
 
 Steps, the same for every platform:
 
@@ -225,14 +222,6 @@ Platform-specific formulas:
 
 Constants: ρ_w = 1025 kg/m³, ρ_steel = 7850 kg/m³ and g = 9.80665 m/s².
 
-**Check against the MATLAB exercise (for instructors).** The pitch lines marked `%Complete` in `exercise_statics.m` were filled in with the Exercise 2 formula. With the reference inputs, the tool gives the same values as MATLAB:
-
-| | Ballast | h_b | J | K | Static pitch |
-|---|---|---|---|---|---|
-| Semisub | 3 833 378 kg | 4.01 m | 502 970 m⁴ | 2.61 GN·m/rad | 5.68° |
-| Spar | 15 333 202 kg | 15.25 m | 3 217 m⁴ | 3.07 GN·m/rad | 4.82° |
-| Barge | 14 301 200 kg | 5.16 m | 609 301 m⁴ | 3.81 GN·m/rad | 3.89° |
-
 ### Failure and warning checks
 
 | Check | Condition | Level |
@@ -268,7 +257,7 @@ x_down and x_up are the outer edges of the hull:
 | Spar | d/2 | d/2 |
 | Barge | W/2 | W/2 |
 
-### Simplifications (to discuss in class)
+### Simplifications
 
 * The model is linear and small-angle. The stiffness is computed at the upright position and the draft does not change while the platform pitches.
 * Steel CoM:
