@@ -3,7 +3,10 @@
 All notable changes to the Floating Wind Hydrostatics Lab are listed here.
 The project uses [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH.
 
-## [1.1.0] - 2026-11-23
+## [1.1.1] - 2026-11-23
+README corrections; no changes to the model or results.
+
+## [1.1.0]
 
 Changes after review by colleagues.
 
