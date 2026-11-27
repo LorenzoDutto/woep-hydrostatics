@@ -18,19 +18,24 @@
  *    1. constants and turbine data (common to all platforms)
  *    2. one object per platform type (PLATFORMS.semisub / .spar / .barge).
  *       Each one describes its own geometry: submerged volume, centre of
- *       buoyancy, waterplane, ballast, mass items, capsize angles, checks.
+ *       buoyancy, waterplane, ballast, mass items, limit angles of the linear
+ *       model, checks.
  *    3. the common solver solve(type, params), the same for every platform:
  *       mass budget -> heave equilibrium -> centre of gravity -> stiffness
  *       -> static pitch -> failure checks.
  *
- *  Reference frames (both with x downwind = direction of the thrust, z upward):
- *    - STRUCTURE frame (x, z): fixed to the platform, origin on the platform axis at
- *      the still water line (SWL) of the upright floating position. It rotates with the
- *      platform. All hydrostatic quantities (z_CoB, z_CoM, J, K, ...) are computed in
- *      this frame, in the upright position.
+ *  Reference frames (both with x downwind = direction of the thrust, z upward,
+ *  y completing a right-handed frame):
+ *    - STRUCTURE frame (x, z): fixed to the platform, origin O on the platform axis at
+ *      the still water level (SWL) of the upright floating position. It rotates with the
+ *      platform. All hydrostatic quantities (CoB_0^Z, CoM^Z, J, K55, ...) are computed
+ *      in this frame, in the upright position.
  *    - EARTH frame (X, Z): fixed to the ground, origin at the SWL. Used to show where
  *      CoM, CoB and metacentre are once the platform has pitched (see framesAt()).
- *  Positive pitch = the turbine leans downwind (top moves to +x).
+ *  Positive pitch xi_5 = the turbine leans downwind (top moves to +x).
+ *  Notation of the lecture slides: xi_5 = static pitch (variable `pitch`), K55 = pitch
+ *  stiffness (`K`), K33 = heave stiffness (`heaveStiffness`), m = total mass
+ *  (`totalMass`), CoM^X, CoM^Z = `COM[0]`, `COM[2]`, CoB_0^Z = `COB[2]` (upright CoB).
  *
  *  Units: SI everywhere inside this file (m, kg, N, rad).
  * ========================================================================== */
@@ -101,7 +106,8 @@
    *        ballastMaxHeight     space available for the ballast
    *        items(D, steel, hb)  platform mass items {name, m, x, z}
    *        towerBase(D)         height of the tower base above the SWL
-   *        crit(D, FB)          critical (capsize) angles for positive / negative pitch
+   *        crit(D, FB)          limit angles of the linear model (hull top under water or
+ *                             keel out of water) for positive / negative pitch
    *        checks(r, msg)       platform-specific warnings
    * ======================================================================== */
 
@@ -188,7 +194,7 @@
             msg.push({ level: "warn", text: `At ${deg(r.pitch).toFixed(1)}° the upwind pontoon reaches the free surface (from ${deg(r.pontoonEmergence).toFixed(1)}°). The waterplane changes, so the linear (small-angle) stiffness is only approximate.` });
           }
           if (D < p.H_P) {
-            msg.push({ level: "warn", text: `The draft (${D.toFixed(1)} m) is smaller than the pontoon height (${p.H_P.toFixed(1)} m): the pontoons pierce the free surface, which is unusual for a semisubmersible.` });
+            msg.push({ level: "warn", text: `The draft (${D.toFixed(1)} m) is smaller than the pontoon height (${p.H_P.toFixed(1)} m): the pontoons pierce the free surface, which is unusual for a semisubmersible. J and A_wp count the columns only, so K₅₅ and K₃₃ are not valid here.` });
           } else if (D < p.H_P + 3) {
             msg.push({ level: "info", text: `Very shallow draft: the pontoons are only ${(D - p.H_P).toFixed(1)} m below the surface. They will be strongly excited by waves.` });
           }
@@ -349,7 +355,7 @@
       r.valid = false;
     }
 
-    // ---------------- 2. heave equilibrium:  rho_w * Vs(D) = M_tot ----------------
+    // ---------------- 2. heave equilibrium (S1):  rho_w * Vs(D) = m ----------------
     const Vreq = totalMass / RHO_W;                              // volume that must be displaced
     const Vmax = hull.Vs(hull.height);                           // volume when fully submerged
     r.reserveBuoyancy = (Vmax - Vreq) / Vreq;
@@ -382,18 +388,18 @@
     r.items = items;
     r.COM = [COMx, 0, COMz];                                     // CoM of the whole device (platform + turbine), structure frame
 
-    // ---------------- 4. pitch stiffness ----------------
+    // ---------------- 4. pitch stiffness (S12) ----------------
     // 1D approach: of the 6x6 restoring (stiffness) matrix of the floating body, only the
-    // pitch-pitch term C55 is kept (DOF 5 = rotation about the y axis, through the SWL origin);
-    // couplings with the other DOFs and the mooring are neglected. K = C55 = Kh + Kg with
-    //   Hydrostatic part   Kh = rho g (J + Vs * z_CoB)   (z_CoB < 0  -> destabilising term)
-    //   Gravity part       Kg = - M g z_CoM              (z_CoM > 0  -> destabilising)
-    // so that the restoring moment for a small pitch angle th is  M_restoring = K * th.
+    // pitch-pitch term K55 is kept (DOF 5 = rotation about the y axis, through O at the SWL);
+    // couplings with the other DOFs and the mooring are neglected. K55 = Kh + Kg with
+    //   Hydrostatic part   Kh = rho_w g (J + Vs * CoB_0^Z)   (CoB_0^Z < 0 -> destabilising term)
+    //   Gravity part       Kg = - m g CoM^Z                  (CoM^Z > 0  -> destabilising)
+    // so that the restoring moment for a small pitch angle xi_5 is  M_restoring = K55 * xi_5.
     const Kh = RHO_W * G * (hull.J + Vs * COBz);
     const Kg = -totalMass * G * COMz;
     const K = Kh + Kg;
     r.Kh = Kh; r.Kg = Kg; r.K = K;
-    r.heaveStiffness = RHO_W * G * hull.A_wp;                    // C33 = rho g A_wp
+    r.heaveStiffness = RHO_W * G * hull.A_wp;                    // K33 = rho_w g A_wp (S13)
     r.BM = hull.J / Vs;
     r.KB = COBz + D;
     r.KG = COMz + D;
@@ -402,18 +408,20 @@
     // ---------------- 5. static pitch under maximum thrust ----------------
     const hubHeight = base + p.hubHeightRel;                     // hub height above SWL
     r.hubHeight = hubHeight;
-    // Pitch equilibrium about the SWL origin:  K * th = M_ext, with the overturning moment
-    //   M_ext = F_T h_hub + M_tot g (x_CoM - x_CoB)
+    // Pitch equilibrium about O (S7, S10):  K55 * xi_5 = M_ext, with the overturning moment
+    //   M_ext = F_T h_hub + m g CoM^X - rho_w g Vs CoB_0^X = F_T h_hub + m g (CoM^X - CoB_0^X)
     // (moment of the thrust + couple of weight and buoyancy when CoM and CoB are not on the
-    //  same vertical in the upright position; M_tot = rho_w Vs at heave equilibrium).
-    // For these symmetric hulls x_CoB = 0, so the second term is M_tot g x_CoM
-    // (x_CoM < 0: the overhanging rotor makes the turbine lean upwind).
+    //  same vertical in the upright position; m = rho_w Vs at heave equilibrium, S1).
+    // For these symmetric hulls CoB_0^X = 0, so the second term is m g CoM^X
+    // (CoM^X < 0: the overhanging rotor makes the turbine lean upwind).
     const M_thrust = p.thrust * hubHeight;                       // thrust * lever arm (about the SWL)
     const M_weight = totalMass * G * (COMx - r.COB[0]);          // weight-buoyancy couple
     const M_ext = M_thrust + M_weight;
     r.M_thrust = M_thrust; r.M_weight = M_weight; r.M_ext = M_ext;
 
-    // Critical angles (geometry only, the small-angle model keeps the draft)
+    // Limit angles of the linear model (geometry only, the small-angle model keeps the draft):
+    // beyond them the deck edge is under water or the keel is out of water, so the
+    // waterplane changes and the linear stiffness no longer holds.
     const crit = hull.crit(D, FB);
     r.critPos = crit.pos[0]; r.critPosReason = crit.pos[1];
     r.critNeg = crit.neg[0]; r.critNegReason = crit.neg[1];
@@ -421,7 +429,7 @@
     if (K <= 0) {
       r.pitch = NaN;
       r.capsizes = true;
-      msg.push({ level: "error", text: `UNSTABLE: the pitch restoring stiffness is negative (K = ${(K / 1e9).toFixed(2)} GNm/rad, GM = ${r.GM.toFixed(2)} m). The CoM is above the metacentre M (z_M = z_CoB + J/V_s). The platform capsizes even without wind.` });
+      msg.push({ level: "error", text: `UNSTABLE: the pitch stiffness is not positive (K₅₅ = ${(K / 1e9).toFixed(2)} GN·m/rad, GM = ${r.GM.toFixed(2)} m). The CoM is above the metacentre M. The platform capsizes even without wind.` });
     } else {
       const pitch = M_ext / K;                                   // rad
       r.pitch = pitch;
@@ -429,9 +437,9 @@
       const reason = pitch >= 0 ? r.critPosReason : r.critNegReason;
       if (Math.abs(pitch) >= c) {
         r.capsizes = true;
-        msg.push({ level: "error", text: `CAPSIZE: the static pitch (${deg(pitch).toFixed(1)}°) is larger than the critical angle ${deg(c).toFixed(1)}° at which ${reason}. The linear model is no longer valid and the platform is lost.` });
+        msg.push({ level: "error", text: `LINEAR-MODEL LIMIT: the static pitch ξ₅ (${deg(pitch).toFixed(1)}°) exceeds the limit of the linear model, ${deg(c).toFixed(1)}° (deck edge under water or keel out of water; here ${reason}). The result is not valid. Increase the pitch stiffness K₅₅.` });
       } else if (Math.abs(pitch) > deg2rad(p.pitchLimitDeg)) {
-        msg.push({ level: "warn", text: `The static pitch (${deg(pitch).toFixed(1)}°) exceeds the allowable value of ${p.pitchLimitDeg.toFixed(1)}°. The platform floats, but the turbine would lose power and suffer extra loads. Increase the restoring stiffness.` });
+        msg.push({ level: "warn", text: `The static pitch ξ₅ (${deg(pitch).toFixed(1)}°) exceeds the allowable value ξ₅,max = ${p.pitchLimitDeg.toFixed(1)}°. The platform floats, but the turbine would lose power and suffer extra loads. Increase the pitch stiffness K₅₅.` });
       }
     }
 
@@ -482,7 +490,8 @@
       msg.push({ level: "info", text: "No ballast: the platform is floating as light as possible." });
     }
     if (!msg.some((m) => m.level === "error" || m.level === "warn")) {
-      msg.unshift({ level: "ok", text: `The design works: draft ${D.toFixed(2)} m, static pitch ${deg(r.pitch).toFixed(2)}° (allowable ${p.pitchLimitDeg.toFixed(1)}°), capsize angle ${deg(r.critPos).toFixed(1)}°, tip clearance ${tipClearance.toFixed(1)} m.` });
+      const lim = r.pitch >= 0 ? r.critPos : r.critNeg;          // limit in the direction of the pitch
+      msg.unshift({ level: "ok", text: `The design works: draft ${D.toFixed(2)} m, static pitch ξ₅ = ${deg(r.pitch).toFixed(2)}° (allowable ${p.pitchLimitDeg.toFixed(1)}°, linear-model limit ${deg(lim).toFixed(1)}°), tip clearance ${tipClearance.toFixed(1)} m.` });
     }
     return r;
   }
@@ -533,11 +542,27 @@
     };
   }
 
+  /**
+   * Root of f(x) = 0 between a and b by bisection (pure helper, used by the exercises,
+   * e.g. the barge width at which K55 = 0). f(a) and f(b) must have opposite signs;
+   * otherwise NaN is returned.
+   */
+  function bisect(f, a, b, tol = 1e-6, maxIter = 200) {
+    let fa = f(a);
+    const fb = f(b);
+    if (!(fa * fb <= 0)) return NaN;
+    for (let i = 0; i < maxIter && Math.abs(b - a) > tol; i++) {
+      const c = 0.5 * (a + b), fc = f(c);
+      if (fa * fc <= 0) { b = c; } else { a = c; fa = fc; }
+    }
+    return 0.5 * (a + b);
+  }
+
   function minAngle(a, b) { return a[0] <= b[0] ? a : b; }
   function tonnes(kg) { return Math.round(kg / 1e3).toLocaleString("en-US") + " t"; }
   function deg(rad) { return rad * 180 / Math.PI; }
   function deg2rad(d) { return d * Math.PI / 180; }
 
-  root.HydroModel = { VERSION: "1.1.0", RHO_W, G, RHO_STEEL, TURBINE_DEFAULTS, PLATFORMS, fullParams, solve, ballastForDraft, effectiveSteelMass, turbineParts, toEarth, deg, deg2rad };
+  root.HydroModel = { VERSION: "1.2.0", RHO_W, G, RHO_STEEL, TURBINE_DEFAULTS, PLATFORMS, fullParams, solve, ballastForDraft, effectiveSteelMass, turbineParts, toEarth, deg, deg2rad, bisect };
   if (typeof module !== "undefined" && module.exports) module.exports = root.HydroModel;
 })(typeof window !== "undefined" ? window : globalThis);
